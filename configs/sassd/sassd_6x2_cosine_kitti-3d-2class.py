@@ -1,6 +1,6 @@
 _base_ = [
-    '../_base_/datasets/kitti-3d-3class.py',
-    '../_base_/schedules/cyclic_40e.py', '../_base_/default_runtime.py'
+    '../_base_/datasets/kitti-3d-2class.py',
+    '../_base_/schedules/cosine.py', '../_base_/default_runtime.py'
 ]
 
 voxel_size = [0.05, 0.05, 0.1]
@@ -18,32 +18,36 @@ model = dict(
         in_channels=4,
         sparse_shape=[41, 1600, 1408],
         order=('conv', 'norm', 'act'),
+        base_channels=16,
+        output_channels=64,
+        encoder_channels=((16, ), (32, 32, 32), (64, 64, 64), (64, 64, 64)),
+        encoder_paddings=((1, ), (1, 1, 1), (1, 1, 1), ((0, 1, 1), 1, 1)),
+        conv_out_features=((3,1,1),(2,1,1)),
         pointwise_size=160),
     backbone=dict(
         type='SECOND',
-        in_channels=256,
-        layer_nums=[5, 5],
-        layer_strides=[1, 2],
-        out_channels=[128, 256]),
+        in_channels=128,
+        layer_nums=[3, 5, 5],
+        layer_strides=[1, 2, 2],
+        out_channels=[128, 128, 256]),
     neck=dict(
         type='SECONDFPN',
-        in_channels=[128, 256],
-        upsample_strides=[1, 2],
-        out_channels=[256, 256]),
+        in_channels=[128, 128, 256],
+        upsample_strides=[1, 2, 4],
+        out_channels=[256, 256, 256]),
     bbox_head=dict(
         type='Anchor3DHead',
-        num_classes=3,
-        in_channels=512,
-        feat_channels=512,
+        num_classes=2,
+        in_channels=768,
+        feat_channels=768,
         use_direction_classifier=True,
         anchor_generator=dict(
             type='Anchor3DRangeGenerator',
             ranges=[
                 [0, -40.0, -0.6, 70.4, 40.0, -0.6],
-                [0, -40.0, -0.6, 70.4, 40.0, -0.6],
                 [0, -40.0, -1.78, 70.4, 40.0, -1.78],
             ],
-            sizes=[[0.6, 0.8, 1.73], [0.6, 1.76, 1.73], [1.6, 3.9, 1.56]],
+            sizes=[[0.8, 0.6, 1.73], [3.9, 1.6, 1.56]],
             rotations=[0, 1.57],
             reshape_out=False),
         diff_rad_by_sin=True,
@@ -61,13 +65,6 @@ model = dict(
     train_cfg=dict(
         assigner=[
             dict(  # for Pedestrian
-                type='MaxIoUAssigner',
-                iou_calculator=dict(type='BboxOverlapsNearest3D'),
-                pos_iou_thr=0.35,
-                neg_iou_thr=0.2,
-                min_pos_iou=0.2,
-                ignore_iof_thr=-1),
-            dict(  # for Cyclist
                 type='MaxIoUAssigner',
                 iou_calculator=dict(type='BboxOverlapsNearest3D'),
                 pos_iou_thr=0.35,

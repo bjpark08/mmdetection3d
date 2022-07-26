@@ -5,6 +5,8 @@ import numpy as np
 from mmcv.cnn.bricks.registry import CONV_LAYERS
 from torch.nn.parameter import Parameter
 
+# numpy import due to size mismatch
+import numpy as np
 
 def register_spconv2():
     """This func registers spconv2.0 spconv ops to overwrite the default mmcv
@@ -80,7 +82,8 @@ def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
         if key in state_dict:
             input_param = state_dict[key]
 
-            input_param = np.transpose(input_param, (1,2,3,4,0))
+            #change dimension due to size mismatch error
+            input_param = np.transpose(input_param.cpu(), (1,2,3,4,0))
 
             # Backward compatibility: loading 1-dim tensor from
             # 0.3.* to version 0.4+

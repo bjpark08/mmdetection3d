@@ -48,7 +48,7 @@ model = dict(
             ],
             sizes=[
                 [5.0, 2.0, 1.56],
-                [0.8, 0.6, 1.73] 
+                [0.8, 0.6, 1.73]
             ],
             rotations=[0, 1.57],
             reshape_out=False),
