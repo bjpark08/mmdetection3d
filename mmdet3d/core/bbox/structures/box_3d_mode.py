@@ -90,6 +90,8 @@ class Box3DMode(IntEnum):
         if src == dst:
             return box
 
+        if(box is None): return
+        
         is_numpy = isinstance(box, np.ndarray)
         is_Instance3DBoxes = isinstance(box, BaseInstance3DBoxes)
         single_box = isinstance(box, (list, tuple))
@@ -98,6 +100,7 @@ class Box3DMode(IntEnum):
                 'Box3DMode.convert takes either a k-tuple/list or '
                 'an Nxk array/tensor, where k >= 7')
             arr = torch.tensor(box)[None, :]
+
         else:
             # avoid modifying the input box
             if is_numpy:
