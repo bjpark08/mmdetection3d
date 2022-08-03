@@ -125,12 +125,8 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-<<<<<<< Updated upstream
-        #ann_file=data_root + 'rf2021_infos_train_ped_10_points_10_size2.pkl',
-=======
         #ann_file=data_root + 'rf2021_infos_train_2class_5_points_5_size3_iterated.pkl',
->>>>>>> Stashed changes
-        ann_file=data_root + 'rf2021_infos_test_height_make.pkl',
+        ann_file=data_root + 'rf2021_infos_train_height_make.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
