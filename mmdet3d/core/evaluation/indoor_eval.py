@@ -88,7 +88,7 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
     image_ids = []
     confidence = []
     pred_angle = []
-    pred_height = []
+    pred_box = []
     ious = []
     height = []
     for img_id in pred.keys():
@@ -100,7 +100,8 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
         for box, score in pred[img_id]:
             image_ids.append(img_id)
             confidence.append(score)
-            pred_height.append(float(box.tensor[0][5]))
+            if relabeling:
+                pred_box.append(box.tensor[0])
             pred_angle.append(float(box.tensor[0][6]))
             pred_cur[box_idx] = box.tensor
             box_idx += 1
@@ -123,7 +124,8 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
     image_ids = [image_ids[x] for x in sorted_ind]
     ious = [ious[x] for x in sorted_ind]
     angle = [pred_angle[x] for x in sorted_ind]
-    height = [pred_height[x] for x in sorted_ind]
+    if relabeling:
+        box = [pred_box[x] for x in sorted_ind]
 
     # go down dets and mark TPs and FPs
     nd = len(image_ids)
@@ -133,7 +135,7 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
     if relabeling:
         gt_idx_thr = [-np.ones(nd) for i in iou_thr]
         gt_image_thr = [-np.ones(nd) for i in iou_thr]
-        gt_height_thr = [-np.ones(nd) for i in iou_thr]
+        gt_box_thr = [-np.ones((nd, 7)) for i in iou_thr]
     for d in range(nd):
         R = class_recs[image_ids[d]]
         iou_max = -np.inf
@@ -157,7 +159,7 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
                     if relabeling:
                         gt_idx_thr[iou_idx][d] = jmax
                         gt_image_thr[iou_idx][d] = image_ids[d]
-                        gt_height_thr[iou_idx][d] = height[d]
+                        gt_box_thr[iou_idx][d] = box[d]
                     if eval_aos:
                         delta=BBGT[jmax].tensor[0][6]-angle[d]
                         sim_thr[iou_idx][d] = (1.0 + np.cos(delta)) / 2.0
@@ -183,7 +185,7 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
             aos = average_precision(recall, similarity)
         
         if relabeling:
-            ret.append((recall, precision, ap, tp, fp, aos, gt_image_thr, gt_idx_thr, gt_height_thr))
+            ret.append((recall, precision, ap, tp, fp, aos, gt_image_thr, gt_idx_thr, gt_box_thr))
         else:
             ret.append((recall, precision, ap, tp, fp, aos))
 
@@ -221,14 +223,14 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
     aos = [{} for i in ovthresh] if eval_aos else None
     gt_image_num = {} if relabeling else None
     gt_image_idx = {} if relabeling else None
-    gt_image_height = {} if relabeling else None
+    gt_image_box = {} if relabeling else None
 
     for label in gt.keys():
         for iou_idx, thresh in enumerate(ovthresh):
             if label in pred:
                 if relabeling:
                     recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
-                        fp[iou_idx][label], aos[iou_idx][label], gt_image_num[label], gt_image_idx[label], gt_image_height[label] = ret_values[label][iou_idx]
+                        fp[iou_idx][label], aos[iou_idx][label], gt_image_num[label], gt_image_idx[label], gt_image_box[label] = ret_values[label][iou_idx]
                 else:
                     recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
                         fp[iou_idx][label], aos[iou_idx][label] = ret_values[label][iou_idx]
@@ -246,34 +248,69 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
                 aos[iou_idx][label] = np.zeros(1)
 
     if relabeling:
-        return recall, precision, ap, prec_num, aos, gt_image_num, gt_image_idx, gt_image_height
+        return recall, precision, ap, prec_num, aos, gt_image_num, gt_image_idx, gt_image_box
     else:
         return recall, precision, ap, prec_num, aos
 
-def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_heights):
+def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mean'):
+    car_change=[2,5]
+    ped_change=[0,1,2,3,4,5,6]
+
     print("pickle file changing start!")
     import pickle
     with open(pkl_path,'rb') as f:
         datas=pickle.load(f)
 
-    for i in range(len(gts_image_num['2d'][0][1])):
-        if gts_image_num['2d'][0][1][i]>=0 and gts_image_num['3d'][0][1][i]==-1:
-            image_num=int(gts_image_num['2d'][0][1][i])
-            image_idx=int(gts_image_idx['2d'][0][1][i])
-            former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][5]
-            x=(former_x+gts_image_heights['2d'][0][1][i])/2.0
-            datas[image_num]['annos']['gt_bboxes_3d'][image_idx][5]=x
+    car_cnts=[0]*len(datas)
+    for i in range(len(datas)):
+        car_cnt=0
+        for j in range(len(datas[i]['annos']['gt_names'])):
+            if datas[i]['annos']['gt_names'][j]=='Car':
+                car_cnt+=1
+            else:
+                break
+        car_cnts[i]=car_cnt
 
-    for i in range(len(gts_image_num['2d'][1][1])):
-        if gts_image_num['2d'][1][1][i]>=0 and gts_image_num['3d'][1][1][i]==-1:
-            image_num=int(gts_image_num['2d'][1][1][i])
-            image_idx=int(gts_image_idx['2d'][1][1][i])
-            former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][5]
-            x=(former_x+gts_image_heights['2d'][1][1][i])/2.0
-            datas[image_num]['annos']['gt_bboxes_3d'][image_idx][5]=x
+    for i in range(len(gts_image_num['2d'][0][0])):
+        if gts_image_num['2d'][0][0][i]>=0:
+            image_num=int(gts_image_num['2d'][0][0][i])
+            image_idx=int(gts_image_idx['2d'][0][0][i])
+            #print("===")
+            for boxidx in range(7):
+                if boxidx in car_change:
+                    former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
+                    pred_x=gts_image_box['2d'][0][0][i][boxidx]
+                    if mode=='mean':
+                        x=(former_x+pred_x)/2.0
+                    elif mode=='pred':
+                        x=pred_x
+                    datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
+                    #print("Car "+str(boxidx)+":"+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
+                    #if not -1<=former_x-pred_x<=1:
+                    #    print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+            
 
-    with open(pkl_path[:-4]+'_iterated.pkl','wb') as f:
+    for i in range(len(gts_image_num['2d'][1][0])):
+        if gts_image_num['2d'][1][0][i]>=0:
+            image_num=int(gts_image_num['2d'][1][0][i])
+            image_idx=int(gts_image_idx['2d'][1][0][i])+car_cnts[image_num]
+            #print("===")
+            for boxidx in range(7):
+                if boxidx in ped_change:
+                    former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
+                    pred_x=gts_image_box['2d'][1][0][i][boxidx]
+                    if mode=='mean':
+                        x=(former_x+pred_x)/2.0
+                    elif mode=='pred':
+                        x=pred_x
+                    datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
+                    #print("Ped "+str(boxidx)+": "+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
+                    #if not -1<=former_x-pred_x<=1:
+                    #    print("Caution!"+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx]))
+
+    with open(pkl_path[:-4]+'_changed.pkl','wb') as f:
         pickle.dump(datas,f,protocol=pickle.HIGHEST_PROTOCOL)
+    print("pickle file changing finish!")
 
 
 def indoor_eval(gt_annos,
@@ -362,14 +399,14 @@ def indoor_eval(gt_annos,
     ret_dict_ioumodes = dict()
     gts_image_num = {}
     gts_image_idx = {}
-    gts_image_height = {}
+    gts_image_box = {}
     for ioumode in ioumodes:
         cur_metric=metric
         if ioumode =='dis':
             cur_metric = (0.5,)
 
         if relabeling:
-            rec, prec, ap, prec_num, aos, gts_image_num[ioumode], gts_image_idx[ioumode], gts_image_height[ioumode] = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos, relabeling)
+            rec, prec, ap, prec_num, aos, gts_image_num[ioumode], gts_image_idx[ioumode], gts_image_box[ioumode] = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos, relabeling)
         else:
             rec, prec, ap, prec_num, aos = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos)
         
@@ -439,5 +476,5 @@ def indoor_eval(gt_annos,
         ret_dict_ioumodes[ioumode]=ret_dict
 
     if relabeling:
-        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_height)
+        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mean')
     return ret_dict
