@@ -373,7 +373,8 @@ def show_det_result_meshlab_multiclass(data,
                             score_thr=0.0,
                             show=False,
                             snapshot=False,
-                            target=None):
+                            target=None,
+                            aug_datas=None):
     """Show 3D detection result by meshlab."""
     points = data['points'][0][0].cpu().numpy()
     pts_filename = data['img_metas'][0][0]['pts_filename']
@@ -398,14 +399,17 @@ def show_det_result_meshlab_multiclass(data,
     if box_mode != Box3DMode.DEPTH:
         points = Coord3DMode.convert(points, box_mode, Coord3DMode.DEPTH)
         show_bboxes = Box3DMode.convert(pred_bboxes, box_mode, Box3DMode.DEPTH)
-        gt_bboxes = Box3DMode.convert(target, box_mode, Box3DMode.DEPTH)
+        if target is not None:
+            gt_bboxes = Box3DMode.convert(target, box_mode, Box3DMode.DEPTH)
+        if aug_datas is not None:
+            aug_datas = Box3DMode.convert(aug_datas, box_mode, Box3DMode.DEPTH)
     else:
         show_bboxes = deepcopy(pred_bboxes)
         gt_bboxes = deepcopy(target)
 
     show_result(
         points,
-        gt_bboxes,
+        aug_datas,
         show_bboxes,
         out_dir,
         file_name,
@@ -537,7 +541,8 @@ def show_result_meshlab(data,
                         snapshot=False,
                         task='det',
                         palette=None,
-                        target=None):
+                        target=None,
+                        aug_datas=None):
     """Show result by meshlab.
 
     Args:
@@ -562,7 +567,7 @@ def show_result_meshlab(data,
 
     if task in ['det', 'multi_modality-det']:
         file_name = show_det_result_meshlab_multiclass(data, result, out_dir, score_thr,
-                                            show, snapshot, target)
+                                            show, snapshot, target, aug_datas)
         # file_name = show_det_result_meshlab(data, result, out_dir, score_thr,
         #                                    show, snapshot)                        
 
