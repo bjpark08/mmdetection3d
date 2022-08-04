@@ -43,8 +43,8 @@ def calculate_scores(datas):
         # car_num = car_num + len(car_idx[0])
         # ped_num  = ped_num + len(ped_idx[0])
         
-        car_idx = np.where((bbox[:, 0] < 10.0) & (label == 0))
-        ped_idx = np.where((bbox[:, 1] < 20.0) & (label == 1))
+        car_idx = np.where((np.absolute(bbox[:, 1]) < 20.0) & (label == 0))
+        ped_idx = np.where((np.absolute(bbox[:, 1]) < 20.0) & (label == 1))
         car_num = car_num + len(car_idx[0])
         ped_num  = ped_num + len(ped_idx[0])
 
