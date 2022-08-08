@@ -197,8 +197,22 @@ class DataBaseSampler(object):
             if min_num > 0:
                 filtered_infos = []
                 for info in db_infos[name]:
-                    if info['num_points_in_gt'] >= min_num:
-                        filtered_infos.append(info)
+                    temp = np.absolute(info['box3d_lidar'])
+                    if(name == 'Pedestrian'):
+                        if temp[1] >= 30.0 and info['num_points_in_gt'] >= 50:
+                            filtered_infos.append(info)
+                            continue
+                        if temp[1] >= 20.0 and temp[1] < 30.0 and info['num_points_in_gt'] >= 100:
+                            filtered_infos.append(info)
+                            continue
+                        if temp[1] < 20.0 and info['num_points_in_gt'] >= 150:
+                            filtered_infos.append(info)
+                            continue
+
+                    if(name == 'Car'):
+                        if info['num_points_in_gt'] >= min_num:
+                            filtered_infos.append(info)
+
                 db_infos[name] = filtered_infos
         return db_infos
 
