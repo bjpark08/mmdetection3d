@@ -20,16 +20,13 @@ if __name__ == '__main__':
     with open(filepath,'rb') as f:
         datas=pickle.load(f)
 
-    cars = datas['Car']    #list
+    cars = datas['Car']   
     peds = datas['Pedestrian']   
     car_point = []
-    car_total_num = 0
     cnt = 0
-    flag = True
-    car_length = []
-    car_point_condition = []
-    car_size = []
-
+    # car_length = []
+    # car_point_condition = []
+    # car_size = []
     # ped_point = []
     # for ped in peds: 
     #     ped_point.append(ped['num_points_in_gt'])
@@ -38,37 +35,22 @@ if __name__ == '__main__':
     #         flag = False
 
     for car in cars:
-        car_point.append(car['num_points_in_gt'])
-        car_length.append(car['box3d_lidar'][4])
-
-
-        if(np.absolute(car['box3d_lidar'][4]) >= 15):
+        # if(car['num_points_in_gt'] <= 30 and np.absolute(car['box3d_lidar'][1]) < 10 and np.absolute(car['box3d_lidar'][0]) < 10):
+        if(np.absolute(car['box3d_lidar'][4]) >= 25 and np.absolute(car['box3d_lidar'][3]) > 10):
+            # 해당 PCD 파일의 위치를 알고싶을때 print("Folder is ", 10002 + car['image_idx'] // 200, " + ", car['image_idx'] - ((car['image_idx'] // 200) * 200) - 1)
             cnt = cnt + 1
-            if(flag == True):
-                print(car)
-                print("Folder is ", 10002 + car['image_idx'] // 200, " + ", car['image_idx'] - ((car['image_idx'] // 200) * 200) - 1)
-                flag = False
-            
-        # # if(car['num_points_in_gt'] <= 30 and np.absolute(car['box3d_lidar'][1]) < 10 and np.absolute(car['box3d_lidar'][0]) < 10):
-        # if(np.absolute(car['box3d_lidar'][4]) >= 25 and np.absolute(car['box3d_lidar'][3]) > 10):
-        #     if(flag == True):
-        #         print(car)
-        #         print('\n')
-        #         print("Folder is ", 10002 + car['image_idx'] // 200, " + ", car['image_idx'] - ((car['image_idx'] // 200) * 200) - 1)
-        #         flag = False
-        #     cnt = cnt + 1
-        #     if(np.absolute(car['box3d_lidar'][1]) < 30 and np.absolute(car['box3d_lidar'][0]) < 30):
-        #         condition = condition + 1
+            if(np.absolute(car['box3d_lidar'][1]) < 30 and np.absolute(car['box3d_lidar'][0]) < 30):
+                condition = condition + 1
 
-    # car_point = np.array(car_point)
+    car_point = np.array(car_point)
     # car_length = np.array(car_length)
     # car_point_condition = np.array(car_point_condition)
     # car_size = np.array(car_size)
     # car_size = np.absolute(car_size)
-    # print("Total num of Car ", len(cars))
-    # print("Condition ", cnt, " ", cnt / len(cars) * 100)
+    print("Total num of Car ", len(cars))
+    print("Condition ", cnt, " ", cnt / len(cars) * 100)
     # print("number of object is ", cnt,  " ", cnt / len(cars) * 100, "%")
     # print("number of conditioned object is ", condition, " ", condition / len(cars) * 100, "%")
-    # print(car_point.mean())
+    print(car_point.mean())
     # print(car_point_condition.mean())
     # print(np.mean(car_size, axis = 0))

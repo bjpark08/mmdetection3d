@@ -89,45 +89,11 @@ def test_random_flip_3d():
                     pcd_object.pc_data["y"] = point[:,1]
                     pcd_object.pc_data["z"] = point[:,2]
                     pcd_object.pc_data["intensity"] = point[:,3]
+                    
                     # save_pcd_file_path_name = osp.join(save_pcd_file_path, '.pcd')
+                    
                     pcd_object.save_pcd(save_pcd_file_path, comprehension='binary_compressed')
 
-    #                 annot_deque.append(annot_dict)
-    #                 sample_idx += 1
-    # else:
-    #     print("no data dir")
-    #     print("Please check data dir path")
-    #     exit()
-
-    # annot_list = list(annot_deque)
-    # total_len = len(annot_list)
-    # train_len = int(total_len * 0.8)
-    # val_len = int(total_len * 0.1)
-    # rf_infos_train = annot_list[:train_len]
-    # filename = root_path / f'{info_prefix}_infos_train.pkl'
-    # print(f'RF2021 info train file is saved to {filename}')
-    # mmcv.dump(rf_infos_train, filename)
-
-    # rf_infos_val = annot_list[train_len:train_len + val_len]
-    # filename = root_path / f'{info_prefix}_infos_val.pkl'
-    # print(f'RF2021 info val file is saved to {filename}')
-    # mmcv.dump(rf_infos_val, filename)
-
-    # rf_infos_test = annot_list[train_len + val_len:]
-    # filename = root_path / f'{info_prefix}_infos_test.pkl'
-    # print(f'RF2021 info test file is saved to {filename}')
-    # mmcv.dump(rf_infos_test, filename)
-
-
-
-    # points = input_dict['points'].tensor.numpy()
-    # gt_bboxes_3d = input_dict['gt_bboxes_3d'].tensor
-    # with open('result.pcd', 'w') as wb:
-    #     wb.write(HEADER.format(len(point), len(point))+'\n') 
-    #     np.savetxt(wb,point,delimiter =  '' , fmt=  '%f %f %f %u')
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(point)
-    # o3d.io.write_point_cloud("flip_one.pcd", pcd)
 
 if __name__ == '__main__':
     test_random_flip_3d()
