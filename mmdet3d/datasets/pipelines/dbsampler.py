@@ -197,20 +197,42 @@ class DataBaseSampler(object):
             if min_num > 0:
                 filtered_infos = []
                 for info in db_infos[name]:
+                    if info['num_points_in_gt'] >= min_num:
+                        filtered_infos.append(info)
+
+                db_infos[name] = filtered_infos
+        return db_infos
+
+    @staticmethod
+    def filter_by_range(db_infos, min_gt_points_dict):
+        """Filter ground truths by number of points in the bbox.
+
+        Args:
+            db_infos (dict): Info of groundtruth database.
+            min_gt_points_dict (dict): Different number of minimum points
+                needed for different categories of ground truths.
+
+        Returns:
+            dict: Info of database after filtering.
+        """
+        for name, min_num_list in min_gt_points_dict.items():
+            if len(min_num_list) > 0:
+                filtered_infos = []
+                for info in db_infos[name]:
                     temp = np.absolute(info['box3d_lidar'])
                     if(name == 'Pedestrian'):
-                        if temp[1] >= 30.0 and info['num_points_in_gt'] >= 50:
+                        if temp[1] >= 30.0 and info['num_points_in_gt'] >= min_num_list[0]:
                             filtered_infos.append(info)
                             continue
-                        if temp[1] >= 20.0 and temp[1] < 30.0 and info['num_points_in_gt'] >= 100:
+                        if temp[1] >= 20.0 and temp[1] < 30.0 and info['num_points_in_gt'] >= min_num_list[1]:
                             filtered_infos.append(info)
                             continue
-                        if temp[1] < 20.0 and info['num_points_in_gt'] >= 150:
+                        if temp[1] < 20.0 and info['num_points_in_gt'] >= min_num_list[2]:
                             filtered_infos.append(info)
                             continue
 
                     if(name == 'Car'):
-                        if info['num_points_in_gt'] >= min_num:
+                        if info['num_points_in_gt'] >= min_num_list[0]:
                             filtered_infos.append(info)
 
                 db_infos[name] = filtered_infos
