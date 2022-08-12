@@ -399,17 +399,23 @@ def show_det_result_meshlab_multiclass(data,
     if box_mode != Box3DMode.DEPTH:
         points = Coord3DMode.convert(points, box_mode, Coord3DMode.DEPTH)
         show_bboxes = Box3DMode.convert(pred_bboxes, box_mode, Box3DMode.DEPTH)
+        
         if target is not None:
             gt_bboxes = Box3DMode.convert(target, box_mode, Box3DMode.DEPTH)
+        else:
+            gt_bboxes = None
         if aug_datas is not None:
-            aug_datas = Box3DMode.convert(aug_datas, box_mode, Box3DMode.DEPTH)
+            aug_bboxes = Box3DMode.convert(aug_datas, box_mode, Box3DMode.DEPTH)
+        else:
+            aug_bboxes = None
     else:
         show_bboxes = deepcopy(pred_bboxes)
         gt_bboxes = deepcopy(target)
+        aug_bboxes = deepcopy(aug_datas)
 
     show_result(
         points,
-        aug_datas,
+        gt_bboxes,
         show_bboxes,
         out_dir,
         file_name,

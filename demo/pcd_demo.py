@@ -53,7 +53,7 @@ def main():
         show=args.show,
         snapshot=args.snapshot,
         task='det',
-        target=None,
+        target=target,
         aug_datas=aug_datas)
 
 

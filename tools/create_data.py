@@ -204,6 +204,145 @@ def rf2021_data_prep(root_path,
     create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
                             root_path / f'{info_prefix}_infos_train.pkl')
 
+def weak_kitti_data_prep(root_path,
+                    info_prefix):
+    """ change kitti data to RF2021 dataset format.
+
+    1. loop pcd file directory.
+    2. vehicle (car) 과 Pedestrian의 label의 형태를 (cls, x, y, z, dx, dy, dz, theta)로 통일
+        * 각도를 바꾸는 이유는 우리 데이터셋의 좌표계와 mmdetection3d의 좌표계가 갖는 각도에 대한 기준이 달라서 이를 맞춰줌
+    3. z값이 제대로 안만들어져 있는 경우에는 해당 box내에 포인트들을 적절히 봐서 임의로 z 값 채움
+    4. custom3DDataset의 형태로 저장. train,val,test 나눠서 pickle 파일로 저장. 
+
+    """
+    import os
+    from pathlib import Path
+    import numpy as np
+    import mmcv
+    from collections import deque
+    from tqdm import tqdm
+    import math
+
+    root_path = Path(root_path)
+
+    number_dir = osp.join(root_path, "ImageSets")
+    pcd_dir = osp.join(root_path, "training", "velodyne_reduced")
+    label_dir = osp.join(root_path, "training", "label_2")
+
+    train_set_num_dir = osp.join(number_dir,"train.txt")
+    val_set_num_dir = osp.join(number_dir,"val.txt")
+    train_set_num = np.loadtxt(train_set_num_dir, dtype=np.object_)
+    val_set_num = np.loadtxt(val_set_num_dir, dtype=np.object_)
+
+    train_idx = 0
+    val_idx = 0
+    sample_idx = 0
+    annot_deque_train = deque([])
+    annot_deque_val = deque([])
+
+    if osp.isdir(pcd_dir):
+        pcd_list = sorted(os.listdir(pcd_dir), key=lambda x:int(x[:-4]))
+        for pcd in tqdm(pcd_list):
+            trainORval=0
+            if train_idx<len(train_set_num) and int(train_set_num[train_idx])==int(pcd[:-4]):
+                train_idx+=1
+                trainORval=0
+            elif val_idx<len(val_set_num) and int(val_set_num[val_idx])==int(pcd[:-4]):
+                val_idx+=1
+                trainORval=1
+            else:
+                continue
+            
+            pcd_data_dir = osp.join("training", "velodyne_reduced",pcd)
+            label_data_dir = osp.join(label_dir, pcd[:-4] + ".txt")
+
+            annot = np.array([])
+            annot = np.loadtxt(label_data_dir, dtype=np.object_).reshape(-1, 15)
+            annot = annot[:,[0,13,11,12,10,9,8,14]]
+
+            #annot[:, [2]] = -annot[:, [2]].astype(np.float32)
+            #annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
+
+            annot[annot == 'Van'] = 'Car'
+            annot[annot == 'Truck'] = 'Car'
+            annot[annot == 'Tram'] = 'Car'
+            annot[annot == 'Misc'] = 'DontCare'
+            annot[annot == 'Person_sitting'] = 'DontCare'
+            annot=np.delete(annot,annot[:,0]=='DontCare',axis=0)
+            
+            annot_ped = (annot[:, 0] == 'Pedestrian')
+            #annot[annot_ped, 4] = '0.7'
+            #annot[annot_ped, 5] = '0.7'
+
+            if len(annot):
+                annot_dict = dict(
+                    sample_idx= sample_idx,
+                    lidar_points= {'lidar_path': pcd_data_dir},
+                    annos= {'box_type_3d': 'LiDAR',
+                            'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
+                            'gt_names': annot[:, 0]
+                            }
+                )
+                
+                if trainORval==0:
+                    annot_deque_train.append(annot_dict)
+                else:
+                    annot_deque_val.append(annot_dict)
+                sample_idx += 1
+
+
+            # if osp.exists(label_data_dir):
+            #     annot[:, [1,2,3,4,5,6]] = annot[:, [4,5,6,2,1,3]]
+            #     annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
+            #     annot[annot == 'nan'] = '-1.00'
+            #     #annot[annot == 'Cyclist'] = 'Pedestrian'
+            # if osp.exists(ped_label_file_path):
+            #     annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
+            #     if len(annot_ped) > 0:
+            #         annot_ped[annot_ped == 'nan'] = '-1.00'
+            #         annot_ped[annot_ped[:, 3] == '-1.00', 3] = '0.7'
+            #         annot_ped[annot_ped[:, 4] ==  '-1.00', 4] = '0.7'  
+            #         annot_cls = np.array([["Pedestrian"] for _ in range(len(annot_ped))])
+            #         annot_angle = np.array([[0] for _ in range(len(annot_ped))])
+            #         annot_ped = np.hstack((annot_cls, annot_ped, annot_angle))
+            #         annot = np.vstack((annot, annot_ped))
+            
+            # if len(annot):
+            #     invalid_cond = (annot[:, 3] == '-1.00') & (annot[:, 6] == '-1.00')
+            #     cz, h = get_estimated_z_h(pcd_file_path, annot[invalid_cond])
+            #     annot[invalid_cond, 3] = cz
+            #     annot[invalid_cond, 6] = h
+            #     pcd_file_path = "/".join(pcd_file_path.split("/")[2:])
+            #     annot_dict = dict(
+            #         sample_idx= sample_idx,
+            #         lidar_points= {'lidar_path': pcd_file_path},
+            #         annos= {'box_type_3d': 'LiDAR',
+            #                 'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
+            #                 'gt_names': annot[:, 0]
+            #                 }
+            #     )
+            #     annot_deque.append(annot_dict)
+            #     sample_idx += 1
+    else:
+        print("no data dir")
+        print("Please check data dir path")
+        exit()
+
+    annot_list_train = list(annot_deque_train)
+    annot_list_val = list(annot_deque_val)
+
+    weak_kitti_infos_train = annot_list_train[:]
+    filename = root_path / f'{info_prefix}_infos_train.pkl'
+    print(f'Weak Kitti info train file is saved to {filename}')
+    mmcv.dump(weak_kitti_infos_train, filename)
+
+    weak_kitti_infos_val = annot_list_val[:]
+    filename = root_path / f'{info_prefix}_infos_val.pkl'
+    print(f'Weak Kitti info val file is saved to {filename}')
+    mmcv.dump(weak_kitti_infos_val, filename)
+
+    #create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
+    #                       root_path / f'{info_prefix}_infos_train.pkl')
 
 def kitti_data_prep(root_path,
                     info_prefix,
@@ -431,6 +570,11 @@ if __name__ == '__main__':
             version=args.version,
             out_dir=args.out_dir,
             with_plane=args.with_plane)
+    elif args.dataset == 'weak_kitti':
+        weak_kitti_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag
+        )
     elif args.dataset == 'rf2021':
         rf2021_data_prep(
             root_path=args.root_path,

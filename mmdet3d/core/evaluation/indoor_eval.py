@@ -252,9 +252,13 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
     else:
         return recall, precision, ap, prec_num, aos
 
-def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mean'):
+def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
     car_change=[2,5]
     ped_change=[0,1,2,3,4,5,6]
+    a=0
+    b=0
+    car=0
+    ped=0
 
     print("pickle file changing start!")
     import pickle
@@ -265,7 +269,7 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
     for i in range(len(datas)):
         car_cnt=0
         for j in range(len(datas[i]['annos']['gt_names'])):
-            if datas[i]['annos']['gt_names'][j]=='Car':
+            if datas[i]['annos']['gt_names'][j]!='Pedestrian':
                 car_cnt+=1
             else:
                 break
@@ -275,42 +279,58 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
         if gts_image_num['2d'][0][0][i]>=0:
             image_num=int(gts_image_num['2d'][0][0][i])
             image_idx=int(gts_image_idx['2d'][0][0][i])
-            #print("===")
+
+            a+=1
+            change=0
             for boxidx in range(7):
                 if boxidx in car_change:
                     former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
                     pred_x=gts_image_box['2d'][0][0][i][boxidx]
-                    if mode=='mean':
+                    if boxidx==2:
+                        pred_x+=gts_image_box['2d'][0][0][i][5]/2.0
+                    if mode=='mid':
                         x=(former_x+pred_x)/2.0
                     elif mode=='pred':
                         x=pred_x
                     datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
                     #print("Car "+str(boxidx)+":"+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
-                    #if not -1<=former_x-pred_x<=1:
-                    #    print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+                    if former_x!=x:
+                        change=1
+                        #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+            if change:
+                car+=1
             
 
     for i in range(len(gts_image_num['2d'][1][0])):
         if gts_image_num['2d'][1][0][i]>=0:
             image_num=int(gts_image_num['2d'][1][0][i])
             image_idx=int(gts_image_idx['2d'][1][0][i])+car_cnts[image_num]
-            #print("===")
+            
+            b+=1
+            change=0
             for boxidx in range(7):
                 if boxidx in ped_change:
                     former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
                     pred_x=gts_image_box['2d'][1][0][i][boxidx]
-                    if mode=='mean':
+                    if boxidx==2:
+                        pred_x+=gts_image_box['2d'][1][0][i][5]/2.0
+                    if mode=='mid':
                         x=(former_x+pred_x)/2.0
                     elif mode=='pred':
                         x=pred_x
                     datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
                     #print("Ped "+str(boxidx)+": "+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
-                    #if not -1<=former_x-pred_x<=1:
-                    #    print("Caution!"+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx]))
+                    if former_x!=x:
+                        change=1
+                    #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+            if change:
+                ped+=1
 
-    with open(pkl_path[:-4]+'_changed.pkl','wb') as f:
+    with open(pkl_path[:-4]+'_changed_'+mode+'.pkl','wb') as f:
         pickle.dump(datas,f,protocol=pickle.HIGHEST_PROTOCOL)
     print("pickle file changing finish!")
+    print(car, ped)
+    print(a,b)
 
 
 def indoor_eval(gt_annos,
@@ -395,7 +415,7 @@ def indoor_eval(gt_annos,
             gt[label][img_id].append(bbox)
 
     eval_aos = True
-    ioumodes = ['3d', '2d', 'dis']
+    ioumodes = ['3d', '2d']
     ret_dict_ioumodes = dict()
     gts_image_num = {}
     gts_image_idx = {}
@@ -476,5 +496,5 @@ def indoor_eval(gt_annos,
         ret_dict_ioumodes[ioumode]=ret_dict
 
     if relabeling:
-        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mean')
+        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mid')
     return ret_dict
