@@ -250,8 +250,10 @@ def create_groundtruth_database(dataset_class_name,
     group_counter = 0
     for j in track_iter_progress(list(range(len(dataset)))):
         input_dict = dataset.get_data_info(j)
-        if (input_dict is None): continue
-        dataset.pre_pipeline(input_dict)
+        try:
+            dataset.pre_pipeline(input_dict)
+        except:
+            continue
         example = dataset.pipeline(input_dict)
         annos = example['ann_info']
         image_idx = example['sample_idx']
