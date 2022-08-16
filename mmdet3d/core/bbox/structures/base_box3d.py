@@ -68,6 +68,10 @@ class BaseInstance3DBoxes(object):
             self.tensor[:, :3] += self.tensor[:, 3:6] * (dst - src)
 
     @property
+    def info(self):
+        return self.tensor[:]
+
+    @property
     def volume(self):
         """torch.Tensor: A vector with volume of each box."""
         return self.tensor[:, 3] * self.tensor[:, 4] * self.tensor[:, 5]
