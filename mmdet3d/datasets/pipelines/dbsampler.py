@@ -204,13 +204,13 @@ class DataBaseSampler(object):
         return db_infos
 
     @staticmethod
-    def filter_by_range(db_infos, min_gt_points_dict):
-        """Filter ground truths by number of points in the bbox.
+    def filter_by_min_points_and_range(db_infos, min_gt_points_dict):
+        """Filter ground truths by number of points in the bbox, which are different according to the range.
 
         Args:
             db_infos (dict): Info of groundtruth database.
             min_gt_points_dict (dict): Different number of minimum points
-                needed for different categories of ground truths.
+                needed for different categories and ranges of ground truths.
 
         Returns:
             dict: Info of database after filtering.
@@ -219,22 +219,17 @@ class DataBaseSampler(object):
             if len(min_num_list) > 0:
                 filtered_infos = []
                 for info in db_infos[name]:
-                    temp = np.absolute(info['box3d_lidar'])
+                    dist_gt = np.sqrt(info['box3d_lidar'][0]**2 + info['box3d_lidar'][1]**2)
                     if(name == 'Pedestrian'):
-                        if temp[1] >= 30.0 and info['num_points_in_gt'] >= min_num_list[0]:
+                        if dist_gt >= 50.0 and info['num_points_in_gt'] >= min_num_list[0]:
                             filtered_infos.append(info)
-                            continue
-                        if temp[1] >= 20.0 and temp[1] < 30.0 and info['num_points_in_gt'] >= min_num_list[1]:
+                        elif dist_gt >= 30.0 and dist_gt < 50.0 and info['num_points_in_gt'] >= min_num_list[1]:
                             filtered_infos.append(info)
-                            continue
-                        if temp[1] < 20.0 and info['num_points_in_gt'] >= min_num_list[2]:
+                        elif dist_gt < 30.0 and info['num_points_in_gt'] >= min_num_list[2]:
                             filtered_infos.append(info)
-                            continue
-
-                    if(name == 'Car'):
+                    elif(name == 'Car'):
                         if info['num_points_in_gt'] >= min_num_list[0]:
                             filtered_infos.append(info)
-
                 db_infos[name] = filtered_infos
         return db_infos
 
