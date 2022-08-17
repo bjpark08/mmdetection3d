@@ -10,8 +10,12 @@ from tools.data_converter import nuscenes_converter as nuscenes_converter
 from tools.data_converter.create_gt_database import (
     GTDatabaseCreater, create_groundtruth_database)
 
+from mmdet3d.core.bbox import (Box3DMode, CameraInstance3DBoxes, Coord3DMode,
+                               DepthInstance3DBoxes, LiDARInstance3DBoxes)
+
 from pypcd import pypcd
 import numpy as np
+import struct
 
 def read_PC(pcd_file):
     """
@@ -21,6 +25,18 @@ def read_PC(pcd_file):
         return
             np.array, nx3, xyz coordinates of given pointcloud points.
     """
+    if pcd_file[-3:]=="bin":
+        size_float = 4
+        list_pcd = []
+        with open(pcd_file, "rb") as f:
+            byte = f.read(size_float * 4)
+            while byte:
+                x, y, z, intensity = struct.unpack("ffff", byte)
+                list_pcd.append([x, y, z])
+                byte = f.read(size_float * 4)
+        np_pcd = np.asarray(list_pcd)
+        return np_pcd
+
     points_pcd = pypcd.PointCloud.from_path(pcd_file)
     x = points_pcd.pc_data["x"].copy()
     y = points_pcd.pc_data["y"].copy()
@@ -222,127 +238,102 @@ def weak_kitti_data_prep(root_path,
     from collections import deque
     from tqdm import tqdm
     import math
+    import pickle
+    import random
+
+    ped_xyset_ratio=20
+    all_hset_ratio=20
 
     root_path = Path(root_path)
 
-    number_dir = osp.join(root_path, "ImageSets")
-    pcd_dir = osp.join(root_path, "training", "velodyne_reduced")
-    label_dir = osp.join(root_path, "training", "label_2")
+    data={}
+    train_data_dir = osp.join(root_path,"kitti_infos_train.pkl")
+    val_data_dir = osp.join(root_path,"kitti_infos_val.pkl")
 
-    train_set_num_dir = osp.join(number_dir,"train.txt")
-    val_set_num_dir = osp.join(number_dir,"val.txt")
-    train_set_num = np.loadtxt(train_set_num_dir, dtype=np.object_)
-    val_set_num = np.loadtxt(val_set_num_dir, dtype=np.object_)
+    with open(train_data_dir,'rb') as f:
+	    data['train'] = pickle.load(f)
 
-    train_idx = 0
-    val_idx = 0
+    with open(val_data_dir,'rb') as f:
+        data['val'] = pickle.load(f)
+
     sample_idx = 0
     annot_deque_train = deque([])
     annot_deque_val = deque([])
 
-    if osp.isdir(pcd_dir):
-        pcd_list = sorted(os.listdir(pcd_dir), key=lambda x:int(x[:-4]))
-        for pcd in tqdm(pcd_list):
-            trainORval=0
-            if train_idx<len(train_set_num) and int(train_set_num[train_idx])==int(pcd[:-4]):
-                train_idx+=1
-                trainORval=0
-            elif val_idx<len(val_set_num) and int(val_set_num[val_idx])==int(pcd[:-4]):
-                val_idx+=1
-                trainORval=1
-            else:
-                continue
+    for setting in data.keys():
+        for info in tqdm(data[setting]):
+            pcd_data_dir = osp.join(root_path,"kitti_infos_train.pkl")
+
+            rect = info['calib']['R0_rect'].astype(np.float32)
+            Trv2c = info['calib']['Tr_velo_to_cam'].astype(np.float32)
+
+            annos = info['annos']
+            loc = annos['location']
+            dims = annos['dimensions']
+            rots = annos['rotation_y']
+            gt_names = np.array(annos['name'][:])
+            gt_bboxes_3d = np.concatenate([loc, dims, rots[..., np.newaxis]],
+                                        axis=1).astype(np.float32)
+
+            gt_bboxes_3d = CameraInstance3DBoxes(gt_bboxes_3d).convert_to(
+                Box3DMode.LIDAR, np.linalg.inv(rect @ Trv2c))
+            gt_bboxes_3d = gt_bboxes_3d.tensor.numpy()
+            gt_bboxes_3d[:,2] += gt_bboxes_3d[:,5]/2.0
             
-            pcd_data_dir = osp.join("training", "velodyne_reduced",pcd)
-            label_data_dir = osp.join(label_dir, pcd[:-4] + ".txt")
+            gt_names[gt_names == 'Van'] = 'Car'
+            gt_names[gt_names == 'Truck'] = 'Car'
+            gt_names[gt_names == 'Tram'] = 'Car'
+            gt_names[gt_names == 'Misc'] = 'DontCare'
+            gt_names[gt_names == 'Person_sitting'] = 'DontCare'
 
-            annot = np.array([])
-            annot = np.loadtxt(label_data_dir, dtype=np.object_).reshape(-1, 15)
-            annot = annot[:,[0,13,11,12,10,9,8,14]]
-
-            #annot[:, [2]] = -annot[:, [2]].astype(np.float32)
-            #annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
-
-            annot[annot == 'Van'] = 'Car'
-            annot[annot == 'Truck'] = 'Car'
-            annot[annot == 'Tram'] = 'Car'
-            annot[annot == 'Misc'] = 'DontCare'
-            annot[annot == 'Person_sitting'] = 'DontCare'
-            annot=np.delete(annot,annot[:,0]=='DontCare',axis=0)
-            
-            annot_ped = (annot[:, 0] == 'Pedestrian')
-            #annot[annot_ped, 4] = '0.7'
-            #annot[annot_ped, 5] = '0.7'
+            annot = np.hstack((gt_names.reshape(-1,1), gt_bboxes_3d))
+            annot = np.delete(annot,gt_names=='DontCare',axis=0)
 
             if len(annot):
+                bin_dir=osp.join("training/velodyne_reduced/",info['point_cloud']['velodyne_path'][-10:])
+
+                annot_ped = (annot[:, 0] == 'Pedestrian')
+                annot_xyset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= ped_xyset_ratio
+                annot_hset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= all_hset_ratio
+
+                annot_xy_change = annot_ped * annot_xyset_rand
+                annot[annot_xy_change, 4] = '0.7'
+                annot[annot_xy_change, 5] = '0.7'
+
+                cz, h = get_estimated_z_h(osp.join(root_path,bin_dir), annot[annot_hset_rand])
+                annot[annot_hset_rand, 3] = cz
+                annot[annot_hset_rand, 6] = h
+                
                 annot_dict = dict(
                     sample_idx= sample_idx,
-                    lidar_points= {'lidar_path': pcd_data_dir},
+                    lidar_points= {'lidar_path': bin_dir },
                     annos= {'box_type_3d': 'LiDAR',
                             'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
                             'gt_names': annot[:, 0]
                             }
                 )
-                
-                if trainORval==0:
+
+                if setting == 'train':
                     annot_deque_train.append(annot_dict)
-                else:
+                elif setting == 'val':
                     annot_deque_val.append(annot_dict)
                 sample_idx += 1
-
-
-            # if osp.exists(label_data_dir):
-            #     annot[:, [1,2,3,4,5,6]] = annot[:, [4,5,6,2,1,3]]
-            #     annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
-            #     annot[annot == 'nan'] = '-1.00'
-            #     #annot[annot == 'Cyclist'] = 'Pedestrian'
-            # if osp.exists(ped_label_file_path):
-            #     annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
-            #     if len(annot_ped) > 0:
-            #         annot_ped[annot_ped == 'nan'] = '-1.00'
-            #         annot_ped[annot_ped[:, 3] == '-1.00', 3] = '0.7'
-            #         annot_ped[annot_ped[:, 4] ==  '-1.00', 4] = '0.7'  
-            #         annot_cls = np.array([["Pedestrian"] for _ in range(len(annot_ped))])
-            #         annot_angle = np.array([[0] for _ in range(len(annot_ped))])
-            #         annot_ped = np.hstack((annot_cls, annot_ped, annot_angle))
-            #         annot = np.vstack((annot, annot_ped))
-            
-            # if len(annot):
-            #     invalid_cond = (annot[:, 3] == '-1.00') & (annot[:, 6] == '-1.00')
-            #     cz, h = get_estimated_z_h(pcd_file_path, annot[invalid_cond])
-            #     annot[invalid_cond, 3] = cz
-            #     annot[invalid_cond, 6] = h
-            #     pcd_file_path = "/".join(pcd_file_path.split("/")[2:])
-            #     annot_dict = dict(
-            #         sample_idx= sample_idx,
-            #         lidar_points= {'lidar_path': pcd_file_path},
-            #         annos= {'box_type_3d': 'LiDAR',
-            #                 'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
-            #                 'gt_names': annot[:, 0]
-            #                 }
-            #     )
-            #     annot_deque.append(annot_dict)
-            #     sample_idx += 1
-    else:
-        print("no data dir")
-        print("Please check data dir path")
-        exit()
 
     annot_list_train = list(annot_deque_train)
     annot_list_val = list(annot_deque_val)
 
     weak_kitti_infos_train = annot_list_train[:]
-    filename = root_path / f'{info_prefix}_infos_train.pkl'
+    filename = root_path / f'{info_prefix}_infos_train_ratio20.pkl'
     print(f'Weak Kitti info train file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_train, filename)
 
     weak_kitti_infos_val = annot_list_val[:]
-    filename = root_path / f'{info_prefix}_infos_val.pkl'
+    filename = root_path / f'{info_prefix}_infos_val_ratio20.pkl'
     print(f'Weak Kitti info val file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_val, filename)
 
-    #create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-    #                       root_path / f'{info_prefix}_infos_train.pkl')
+    create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
+                           root_path / f'{info_prefix}_infos_train_ratio20.pkl')
 
 def kitti_data_prep(root_path,
                     info_prefix,
