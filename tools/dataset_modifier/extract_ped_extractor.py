@@ -14,14 +14,14 @@ def extract_ped(datas,ped_cnt,data_cnt):
 				break
 	return result
 
-with open('../../data/rf2021/rf2021_infos_train.pkl','rb') as f:
+with open('rf2021_infos_train.pkl','rb') as f:
 	datas=pickle.load(f)
 
-ped_cnt=30
-data_cnt=5000000
+ped_cnt=10
+data_cnt=1
 ped_data=extract_ped(datas,ped_cnt,data_cnt)
 print(ped_cnt, data_cnt, len(ped_data))
 
 
-with open('../../data/rf2021/rf2021_infos_train_ped_'+str(ped_cnt)+'.pkl','wb') as rf:
+with open('rf2021_infos_train_ped_'+str(ped_cnt)+'_imsi.pkl','wb') as rf:
 	pickle.dump(ped_data,rf,protocol=pickle.HIGHEST_PROTOCOL)
