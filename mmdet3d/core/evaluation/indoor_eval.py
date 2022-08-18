@@ -185,14 +185,30 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabelin
             aos = average_precision(recall, similarity)
         
         if relabeling:
-            ret.append((recall, precision, ap, tp, fp, aos, gt_image_thr, gt_idx_thr, gt_box_thr))
+            ret.append((gt_image_thr, gt_idx_thr, gt_box_thr))
         else:
             ret.append((recall, precision, ap, tp, fp, aos))
 
     return ret
 
+def eval_map_recall_relabeling(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
+    ret_values = {}
+    for classname in gt.keys():
+        if classname in pred:
+            ret_values[classname] = eval_det_cls(pred[classname],
+                                                 gt[classname], ovthresh, ioumode, eval_aos, relabeling=True)
+    gt_image_num = {}
+    gt_image_idx = {}
+    gt_image_box = {}
 
-def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relabeling=False):
+    for label in gt.keys():
+        for iou_idx, thresh in enumerate(ovthresh):
+            if label in pred:
+                gt_image_num[label], gt_image_idx[label], gt_image_box[label] = ret_values[label][iou_idx]
+
+    return gt_image_num, gt_image_idx, gt_image_box
+
+def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
     """Evaluate mAP and recall.
 
     Generic functions to compute precision/recall for object detection
@@ -213,7 +229,7 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
     for classname in gt.keys():
         if classname in pred:
             ret_values[classname] = eval_det_cls(pred[classname],
-                                                 gt[classname], ovthresh, ioumode, eval_aos, relabeling)
+                                                 gt[classname], ovthresh, ioumode, eval_aos)
     recall = [{} for i in ovthresh]
     precision = [{} for i in ovthresh]
     ap = [{} for i in ovthresh]
@@ -221,19 +237,12 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
     fp = [{} for i in ovthresh]
     prec_num = [{} for i in ovthresh]
     aos = [{} for i in ovthresh] if eval_aos else None
-    gt_image_num = {} if relabeling else None
-    gt_image_idx = {} if relabeling else None
-    gt_image_box = {} if relabeling else None
 
     for label in gt.keys():
         for iou_idx, thresh in enumerate(ovthresh):
             if label in pred:
-                if relabeling:
-                    recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
-                        fp[iou_idx][label], aos[iou_idx][label], gt_image_num[label], gt_image_idx[label], gt_image_box[label] = ret_values[label][iou_idx]
-                else:
-                    recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
-                        fp[iou_idx][label], aos[iou_idx][label] = ret_values[label][iou_idx]
+                recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
+                    fp[iou_idx][label], aos[iou_idx][label] = ret_values[label][iou_idx]
                 gt_num = sum([len(gt[label][i]) for i in pred[label].keys()])
                 tp_num = int(tp[iou_idx][label][-1])
                 fp_num = int(fp[iou_idx][label][-1])
@@ -247,40 +256,38 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False, relab
                 prec_num[iou_idx][label] = np.zeros(1)
                 aos[iou_idx][label] = np.zeros(1)
 
-    if relabeling:
-        return recall, precision, ap, prec_num, aos, gt_image_num, gt_image_idx, gt_image_box
-    else:
-        return recall, precision, ap, prec_num, aos
+    return recall, precision, ap, prec_num, aos
 
 def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
     car_change=[2,5]
     ped_change=[0,1,2,3,4,5,6]
-    a=0
-    b=0
     car=0
     ped=0
+    car_all=0
+    ped_all=0
 
-    print("pickle file changing start!")
     import pickle
     with open(pkl_path,'rb') as f:
         datas=pickle.load(f)
 
-    car_cnts=[0]*len(datas)
+    nonped_cnts=[0]*len(datas)
     for i in range(len(datas)):
-        car_cnt=0
+        nonped_cnt=0
         for j in range(len(datas[i]['annos']['gt_names'])):
-            if datas[i]['annos']['gt_names'][j]!='Pedestrian':
-                car_cnt+=1
+            if datas[i]['annos']['gt_names'][j]=='Pedestrian':
+                ped_all+=1
+            elif datas[i]['annos']['gt_names'][j]=='Car':
+                nonped_cnt+=1
+                car_all+=1
             else:
-                break
-        car_cnts[i]=car_cnt
+                nonped_cnt+=1
+        nonped_cnts[i]=nonped_cnt
 
     for i in range(len(gts_image_num['2d'][0][0])):
         if gts_image_num['2d'][0][0][i]>=0:
             image_num=int(gts_image_num['2d'][0][0][i])
             image_idx=int(gts_image_idx['2d'][0][0][i])
 
-            a+=1
             change=0
             for boxidx in range(7):
                 if boxidx in car_change:
@@ -288,6 +295,7 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
                     pred_x=gts_image_box['2d'][0][0][i][boxidx]
                     if boxidx==2:
                         pred_x+=gts_image_box['2d'][0][0][i][5]/2.0
+
                     if mode=='mid':
                         x=(former_x+pred_x)/2.0
                     elif mode=='pred':
@@ -304,9 +312,8 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
     for i in range(len(gts_image_num['2d'][1][0])):
         if gts_image_num['2d'][1][0][i]>=0:
             image_num=int(gts_image_num['2d'][1][0][i])
-            image_idx=int(gts_image_idx['2d'][1][0][i])+car_cnts[image_num]
+            image_idx=int(gts_image_idx['2d'][1][0][i])+nonped_cnts[image_num]
             
-            b+=1
             change=0
             for boxidx in range(7):
                 if boxidx in ped_change:
@@ -328,9 +335,9 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
 
     with open(pkl_path[:-4]+'_changed_'+mode+'.pkl','wb') as f:
         pickle.dump(datas,f,protocol=pickle.HIGHEST_PROTOCOL)
-    print("pickle file changing finish!")
-    print(car, ped)
-    print(a,b)
+    
+    print("Car: "+str(car)+"/"+str(car_all)+" ("+str(round(car/car_all,2))+")")
+    print("Ped: "+str(ped)+"/"+str(ped_all)+" ("+str(round(ped/ped_all,2))+")")
 
 
 def indoor_eval(gt_annos,
@@ -415,86 +422,95 @@ def indoor_eval(gt_annos,
             gt[label][img_id].append(bbox)
 
     eval_aos = True
-    ioumodes = ['3d', '2d']
+    ioumodes = ['3d', '2d', 'dis']
     ret_dict_ioumodes = dict()
-    gts_image_num = {}
-    gts_image_idx = {}
-    gts_image_box = {}
-    for ioumode in ioumodes:
-        cur_metric=metric
-        if ioumode =='dis':
-            cur_metric = (0.5,)
-
-        if relabeling:
-            rec, prec, ap, prec_num, aos, gts_image_num[ioumode], gts_image_idx[ioumode], gts_image_box[ioumode] = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos, relabeling)
-        else:
-            rec, prec, ap, prec_num, aos = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos)
-        
-        ret_dict = dict()
-        header = ['classes /'+ioumode]
-        table_columns = [[class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
-                        for label in ap[0].keys()] + ['Overall']]
-
-        for i, iou_thresh in enumerate(cur_metric):
-            header.append(f'AP_{iou_thresh:.2f}')
-            header.append(f'Recall_{iou_thresh:.2f}')
-            header.append(f'Precision_{iou_thresh:.2f}')
-            if eval_aos:
-                header.append(f'AOS_{iou_thresh:.2f}')
-
-            rec_list = []
-            prec_list = []
-            for label in ap[i].keys():
-                label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
-                ret_dict[f'{label_cls}_AP_{iou_thresh:.2f}'] = float(
-                    ap[i][label][0])
-            ret_dict[f'mAP_{iou_thresh:.2f}'] = float(
-                np.mean(list(ap[i].values())))
-
-            table_columns.append(list(map(float, list(ap[i].values()))))
-            table_columns[-1] += [ret_dict[f'mAP_{iou_thresh:.2f}']]
-            table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
-            
-            for label in rec[i].keys():
-                label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
-                ret_dict[f'{label_cls}_rec_{iou_thresh:.2f}'] = float(
-                    rec[i][label][-1])
-                rec_list.append(rec[i][label][-1])
-            ret_dict[f'mRecall_{iou_thresh:.2f}'] = float(np.mean(rec_list))
-
-            table_columns.append(list(map(float, rec_list)))
-            table_columns[-1] += [ret_dict[f'mRecall_{iou_thresh:.2f}']]
-            table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
-            
-            for label in prec_num[i].keys():
-                label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
-                ret_dict[f'{label_cls}_prec_{iou_thresh:.2f}'] = prec_num[i][label]
-                prec_list.append(prec_num[i][label])
-            ret_dict[f'mPrecision_{iou_thresh:.2f}'] = float(np.mean(prec_list))
-            table_columns.append(list(map(float, prec_list)))
-            table_columns[-1] += [ret_dict[f'mPrecision_{iou_thresh:.2f}']]
-            table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
-
-            if eval_aos:
-                aos_list = []
-                for label in aos[i].keys():
-                    label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
-                    ret_dict[f'{label_cls}_aos_{iou_thresh:.2f}'] = aos[i][label]
-                    aos_list.append(aos[i][label])
-                ret_dict[f'mAOS_{iou_thresh:.2f}'] = float(np.mean(aos_list))
-                table_columns.append(list(map(float, aos_list)))
-                table_columns[-1] += [ret_dict[f'mAOS_{iou_thresh:.2f}']]
-                table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
-
-
-        table_data = [header]
-        table_rows = list(zip(*table_columns))
-        table_data += table_rows
-        table = AsciiTable(table_data)
-        table.inner_footing_row_border = True
-        print_log('\n' + table.table, logger=logger)
-        ret_dict_ioumodes[ioumode]=ret_dict
 
     if relabeling:
-        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mid')
+        print()
+        print("==============RELABELING==============")
+        gts_image_num = {}
+        gts_image_idx = {}
+        gts_image_box = {}
+        for ioumode in ioumodes:
+            cur_metric=metric
+            if ioumode == 'dis':
+                continue
+
+            gts_image_num[ioumode], gts_image_idx[ioumode], gts_image_box[ioumode] = eval_map_recall_relabeling(pred, gt, cur_metric, ioumode, eval_aos)
+            
+        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='pred')
+        ret_dict = dict()
+        return ret_dict
+
+    else:
+        for ioumode in ioumodes:
+            cur_metric=metric
+            if ioumode =='dis':
+                cur_metric = (0.5,)
+
+            rec, prec, ap, prec_num, aos = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos)
+            
+            ret_dict = dict()
+            header = ['classes /'+ioumode]
+            table_columns = [[class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
+                            for label in ap[0].keys()] + ['Overall']]
+
+            for i, iou_thresh in enumerate(cur_metric):
+                header.append(f'AP_{iou_thresh:.2f}')
+                header.append(f'Recall_{iou_thresh:.2f}')
+                header.append(f'Precision_{iou_thresh:.2f}')
+                if eval_aos:
+                    header.append(f'AOS_{iou_thresh:.2f}')
+
+                rec_list = []
+                prec_list = []
+                for label in ap[i].keys():
+                    label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
+                    ret_dict[f'{label_cls}_AP_{iou_thresh:.2f}'] = float(
+                        ap[i][label][0])
+                ret_dict[f'mAP_{iou_thresh:.2f}'] = float(
+                    np.mean(list(ap[i].values())))
+
+                table_columns.append(list(map(float, list(ap[i].values()))))
+                table_columns[-1] += [ret_dict[f'mAP_{iou_thresh:.2f}']]
+                table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
+                
+                for label in rec[i].keys():
+                    label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
+                    ret_dict[f'{label_cls}_rec_{iou_thresh:.2f}'] = float(
+                        rec[i][label][-1])
+                    rec_list.append(rec[i][label][-1])
+                ret_dict[f'mRecall_{iou_thresh:.2f}'] = float(np.mean(rec_list))
+
+                table_columns.append(list(map(float, rec_list)))
+                table_columns[-1] += [ret_dict[f'mRecall_{iou_thresh:.2f}']]
+                table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
+                
+                for label in prec_num[i].keys():
+                    label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
+                    ret_dict[f'{label_cls}_prec_{iou_thresh:.2f}'] = prec_num[i][label]
+                    prec_list.append(prec_num[i][label])
+                ret_dict[f'mPrecision_{iou_thresh:.2f}'] = float(np.mean(prec_list))
+                table_columns.append(list(map(float, prec_list)))
+                table_columns[-1] += [ret_dict[f'mPrecision_{iou_thresh:.2f}']]
+                table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
+
+                if eval_aos:
+                    aos_list = []
+                    for label in aos[i].keys():
+                        label_cls = class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
+                        ret_dict[f'{label_cls}_aos_{iou_thresh:.2f}'] = aos[i][label]
+                        aos_list.append(aos[i][label])
+                    ret_dict[f'mAOS_{iou_thresh:.2f}'] = float(np.mean(aos_list))
+                    table_columns.append(list(map(float, aos_list)))
+                    table_columns[-1] += [ret_dict[f'mAOS_{iou_thresh:.2f}']]
+                    table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
+            table_data = [header]
+            table_rows = list(zip(*table_columns))
+            table_data += table_rows
+            table = AsciiTable(table_data)
+            table.inner_footing_row_border = True
+            print_log('\n' + table.table, logger=logger)
+            ret_dict_ioumodes[ioumode]=ret_dict
+
     return ret_dict
