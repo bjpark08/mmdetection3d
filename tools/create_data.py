@@ -108,10 +108,9 @@ def get_estimated_z_h(roi_path, box_annot):
             z1, z2 = q5-0.3, q95+0.3
             h = H_DEFAULT if label_cls != 'Pedestrian' else PED_H_DEFAULT
             # 이 부분을 object class에 따라 구분
-            # if abs(z2 - z1) < 1.5:
-            #     z1 = z2 - h
-            # elif abs(z2 - z1) > 4.2:
-            #     z2 = z1 + h
+           
+            if abs(z2 - z1) > 4.2:
+                z2 = z1 + h
             # z1, z2 = min(roi_points[:,2]), max(roi_points[:,2])
             cz, h = int((z1+z2)/2 * 100)/100, int(abs(z2-z1)*100)/100
         except:
@@ -139,7 +138,8 @@ def additional_height_modifier(box_annot):
     valid_height_cond = (is_ped & ped_valid_height_cond) | (is_veh & veh_valid_height_cond)
     invalid_height_cond = (is_ped & ped_invalid_height_cond) | (is_veh & veh_invalid_height_cond)
 
-    if sum(valid_height_cond) < 2: return
+    #Kitti dataset은 2, RFdataset은 5
+    if sum(valid_height_cond) < 5: return
 
     floors = annots[valid_height_cond, 2] - 0.5 * annots[valid_height_cond, 5]
     max_floor = np.max(floors)
