@@ -282,74 +282,88 @@ def weak_kitti_data_prep(root_path,
 
     data={}
     train_data_dir = osp.join(root_path,"kitti_infos_train.pkl")
+    val_data_dir = osp.join(root_path,"kitti_infos_val.pkl")
 
     with open(train_data_dir,'rb') as f:
-	    data = pickle.load(f)
+	    data['train'] = pickle.load(f)
+    with open(val_data_dir,'rb') as f:
+        data['val'] = pickle.load(f)
 
     sample_idx = 0
     annot_deque_train = deque([])
+    annot_deque_val = deque([])
+    
+    for setting in data.keys():
+        for info in tqdm(data[setting]):
+            rect = info['calib']['R0_rect'].astype(np.float32)
+            Trv2c = info['calib']['Tr_velo_to_cam'].astype(np.float32)
 
-    for info in tqdm(data):
-        pcd_data_dir = osp.join(root_path,"kitti_infos_train.pkl")
+            annos = info['annos']
+            loc = annos['location']
+            dims = annos['dimensions']
+            rots = annos['rotation_y']
+            gt_names = np.array(annos['name'][:])
+            gt_bboxes_3d = np.concatenate([loc, dims, rots[..., np.newaxis]],
+                                        axis=1).astype(np.float32)
 
-        rect = info['calib']['R0_rect'].astype(np.float32)
-        Trv2c = info['calib']['Tr_velo_to_cam'].astype(np.float32)
+            gt_bboxes_3d = CameraInstance3DBoxes(gt_bboxes_3d).convert_to(
+                Box3DMode.LIDAR, np.linalg.inv(rect @ Trv2c))
+            gt_bboxes_3d = gt_bboxes_3d.tensor.numpy()
+            gt_bboxes_3d[:,2] += gt_bboxes_3d[:,5]/2.0
+            
+            gt_names[gt_names == 'Van'] = 'Car'
+            gt_names[gt_names == 'Truck'] = 'Car'
+            gt_names[gt_names == 'Tram'] = 'Car'
+            gt_names[gt_names == 'Misc'] = 'DontCare'
+            gt_names[gt_names == 'Person_sitting'] = 'DontCare'
 
-        annos = info['annos']
-        loc = annos['location']
-        dims = annos['dimensions']
-        rots = annos['rotation_y']
-        gt_names = np.array(annos['name'][:])
-        gt_bboxes_3d = np.concatenate([loc, dims, rots[..., np.newaxis]],
-                                    axis=1).astype(np.float32)
+            annot = np.hstack((gt_names.reshape(-1,1), gt_bboxes_3d))
+            annot = np.delete(annot,gt_names=='DontCare',axis=0)
 
-        gt_bboxes_3d = CameraInstance3DBoxes(gt_bboxes_3d).convert_to(
-            Box3DMode.LIDAR, np.linalg.inv(rect @ Trv2c))
-        gt_bboxes_3d = gt_bboxes_3d.tensor.numpy()
-        gt_bboxes_3d[:,2] += gt_bboxes_3d[:,5]/2.0
-        
-        gt_names[gt_names == 'Van'] = 'Car'
-        gt_names[gt_names == 'Truck'] = 'Car'
-        gt_names[gt_names == 'Tram'] = 'Car'
-        gt_names[gt_names == 'Misc'] = 'DontCare'
-        gt_names[gt_names == 'Person_sitting'] = 'DontCare'
+            if len(annot):
+                bin_dir=osp.join("training/velodyne_reduced/",info['point_cloud']['velodyne_path'][-10:])
 
-        annot = np.hstack((gt_names.reshape(-1,1), gt_bboxes_3d))
-        annot = np.delete(annot,gt_names=='DontCare',axis=0)
+                if setting == 'train':
+                    annot_ped = (annot[:, 0] == 'Pedestrian')
+                    annot_xyset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= ped_xyset_ratio
+                    annot_hset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= all_hset_ratio
 
-        if len(annot):
-            bin_dir=osp.join("training/velodyne_reduced/",info['point_cloud']['velodyne_path'][-10:])
+                    annot_xy_change = annot_ped * annot_xyset_rand
+                    annot[annot_xy_change, 4] = str(0.6 + random.random() * 0.1)
+                    annot[annot_xy_change, 5] = str(0.8 + random.random() * 0.1)
 
-            annot_ped = (annot[:, 0] == 'Pedestrian')
-            annot_xyset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= ped_xyset_ratio
-            annot_hset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= all_hset_ratio
+                    cz, h = get_estimated_z_h(osp.join(root_path,bin_dir), annot[annot_hset_rand])
+                    annot[annot_hset_rand, 3] = cz
+                    annot[annot_hset_rand, 6] = h
+                    additional_height_modifier(annot)
 
-            annot_xy_change = annot_ped * annot_xyset_rand
-            annot[annot_xy_change, 4] = str(0.6 + random.random() * 0.1)
-            annot[annot_xy_change, 5] = str(0.8 + random.random() * 0.1)
+                annot_dict = dict(
+                    sample_idx= sample_idx,
+                    lidar_points= {'lidar_path': bin_dir },
+                    annos= {'box_type_3d': 'LiDAR',
+                            'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
+                            'gt_names': annot[:, 0]
+                            }
+                )
 
-            cz, h = get_estimated_z_h(osp.join(root_path,bin_dir), annot[annot_hset_rand])
-            annot[annot_hset_rand, 3] = cz
-            annot[annot_hset_rand, 6] = h
-            additional_height_modifier(annot)
-            annot_dict = dict(
-                sample_idx= sample_idx,
-                lidar_points= {'lidar_path': bin_dir },
-                annos= {'box_type_3d': 'LiDAR',
-                        'gt_bboxes_3d': annot[:, 1:].astype(np.float32),
-                        'gt_names': annot[:, 0]
-                        }
-            )
-
-            annot_deque_train.append(annot_dict)
-            sample_idx += 1
+                if setting == 'train':
+                    annot_deque_train.append(annot_dict)
+                elif setting == 'val':
+                    annot_deque_val.append(annot_dict)
+                sample_idx += 1
 
     annot_list_train = list(annot_deque_train)
+    annot_list_val = list(annot_deque_val)
 
     weak_kitti_infos_train = annot_list_train[:]
     filename = root_path / f'{info_prefix}_infos_train_ratio20.pkl'
     print(f'Weak Kitti info train file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_train, filename)
+
+    weak_kitti_infos_val = annot_list_val[:]
+    filename = root_path / f'{info_prefix}_infos_val.pkl'
+    print(f'Weak Kitti info val file is saved to {filename}')
+    mmcv.dump(weak_kitti_infos_val, filename)
 
     create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
                            root_path / f'{info_prefix}_infos_train_ratio20.pkl')
