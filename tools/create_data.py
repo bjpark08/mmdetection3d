@@ -91,7 +91,7 @@ def get_estimated_z_h(roi_path, box_annot):
     points_xyz = read_PC(roi_path)
     cz_list,h_list = [], []
     Z_MIN_DEFALUT = -1
-    H_DEFAULT = 2.5
+    H_DEFAULT = 2.0
     PED_H_DEFAULT = 1.7
     for single_annot in box_annot:
         label_cls = single_annot[0]
@@ -108,10 +108,10 @@ def get_estimated_z_h(roi_path, box_annot):
             z1, z2 = q5-0.3, q95+0.3
             h = H_DEFAULT if label_cls != 'Pedestrian' else PED_H_DEFAULT
             # 이 부분을 object class에 따라 구분
-            if abs(z2 - z1) < 1.5:
-                z1 = z2 - h
-            elif abs(z2 - z1) > 4.2:
-                z2 = z1 + h
+            # if abs(z2 - z1) < 1.5:
+            #     z1 = z2 - h
+            # elif abs(z2 - z1) > 4.2:
+            #     z2 = z1 + h
             # z1, z2 = min(roi_points[:,2]), max(roi_points[:,2])
             cz, h = int((z1+z2)/2 * 100)/100, int(abs(z2-z1)*100)/100
         except:
@@ -138,8 +138,8 @@ def additional_height_modifier(box_annot):
 
     valid_height_cond = (is_ped & ped_valid_height_cond) | (is_veh & veh_valid_height_cond)
     invalid_height_cond = (is_ped & ped_invalid_height_cond) | (is_veh & veh_invalid_height_cond)
-    
-    if sum(valid_height_cond) < 5: return
+
+    if sum(valid_height_cond) < 2: return
 
     floors = annots[valid_height_cond, 2] - 0.5 * annots[valid_height_cond, 5]
     max_floor = np.max(floors)
@@ -156,6 +156,8 @@ def additional_height_modifier(box_annot):
     annots[floating_in_the_air_cond, 2] += annots[floating_in_the_air_cond, 5]*0.5 - default_h*0.5
     annots[under_the_floor_cond, 2] += -annots[under_the_floor_cond, 5]*0.5 + default_h*0.5
     annots[invalid_height_cond, 5] = default_h
+
+    box_annot[:, 1:] = annots
 
 def rf2021_data_prep(root_path,
                      info_prefix):
@@ -276,7 +278,7 @@ def weak_kitti_data_prep(root_path,
     import random
 
     ped_xyset_ratio=100 # 보행자 레이블 중, 수정할 비율
-    all_hset_ratio=100 # 
+    all_hset_ratio=100 # get_estiamted_z로 높이를 수정할 비율
 
     root_path = Path(root_path)
 
@@ -337,6 +339,10 @@ def weak_kitti_data_prep(root_path,
                     annot[annot_hset_rand, 6] = h
                     additional_height_modifier(annot)
 
+                annot_nonped = annot[annot[:,0] != 'Pedestrian']
+                annot_ped = annot[annot[:,0] == 'Pedestrian']
+                annot = np.vstack((annot_nonped, annot_ped))
+
                 annot_dict = dict(
                     sample_idx= sample_idx,
                     lidar_points= {'lidar_path': bin_dir },
@@ -356,7 +362,7 @@ def weak_kitti_data_prep(root_path,
     annot_list_val = list(annot_deque_val)
 
     weak_kitti_infos_train = annot_list_train[:]
-    filename = root_path / f'{info_prefix}_infos_train_ratio20.pkl'
+    filename = root_path / f'{info_prefix}_infos_train.pkl'
     print(f'Weak Kitti info train file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_train, filename)
 
@@ -366,7 +372,7 @@ def weak_kitti_data_prep(root_path,
     mmcv.dump(weak_kitti_infos_val, filename)
 
     create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-                           root_path / f'{info_prefix}_infos_train_ratio20.pkl')
+                           root_path / f'{info_prefix}_infos_train.pkl')
 
 def kitti_data_prep(root_path,
                     info_prefix,
