@@ -436,7 +436,7 @@ def indoor_eval(gt_annos,
                     eval_map_recall_relabeling(pred, gt, ovthresh=(0.15,), ioumode='2d', eval_aos=False)
             
         pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='pred')
-        return ret_dict_ioumodes
+        return ret_dict
 
     for ioumode in ioumodes:
         cur_metric=metric
@@ -508,4 +508,4 @@ def indoor_eval(gt_annos,
         print_log('\n' + table.table, logger=logger)
         ret_dict_ioumodes[ioumode]=ret_dict
 
-    return ret_dict_ioumodes
+    return ret_dict
