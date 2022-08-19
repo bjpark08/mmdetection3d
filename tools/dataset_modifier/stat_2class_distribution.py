@@ -15,7 +15,7 @@ ped_cnt=0
 car_dis2=[0]*12
 ped_dis2=[0]*12
 
-file_name='../../data/rf2021/rf2021_infos_train_height_make'
+file_name='data/rf2021/rf2021_infos_train_height_make'
 
 with open(file_name+'.pkl','rb') as f:
 	datas=pickle.load(f)

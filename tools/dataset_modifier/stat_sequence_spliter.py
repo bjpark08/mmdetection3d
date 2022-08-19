@@ -4,11 +4,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 
-root_path = '../../data/rf2021/'
+root_path = 'data/rf2021/'
 file_names=[
-    '../../data/rf2021/rf2021_infos_train_height_make',
-    '../../data/rf2021/rf2021_infos_val_height_make',
-    '../../data/rf2021/rf2021_infos_test_height_make',
+    'data/rf2021/rf2021_infos_train_height_make',
+    'data/rf2021/rf2021_infos_val_height_make',
+    'data/rf2021/rf2021_infos_test_height_make',
 ]
 
 sequence_max = 3000

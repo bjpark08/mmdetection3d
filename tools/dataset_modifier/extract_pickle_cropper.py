@@ -1,6 +1,6 @@
 import pickle
 
-file_name='../../data/rf2021/rf2021_infos_train'
+file_name='data/rf2021/rf2021_infos_train'
 
 with open(file_name+'.pkl','rb') as f:
 	data=pickle.load(f)

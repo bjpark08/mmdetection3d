@@ -4,7 +4,7 @@ import copy
 
 classnames=['Car','Pedestrian','Dont Care']
 
-filename='../../data/rf2021/rf2021_infos_train'
+filename='data/rf2021/rf2021_infos_train'
 cnt=0
 
 #mode='compare'

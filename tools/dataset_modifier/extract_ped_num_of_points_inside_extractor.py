@@ -44,8 +44,8 @@ def extract_ped_pointless(datas,point_cnt):
         result.append(cur_data)
     return result
 
-root_path='../../data/rf2021/'
-file_name='../../data/rf2021/rf2021_infos_train'
+root_path='data/rf2021/'
+file_name='data/rf2021/rf2021_infos_train'
 
 with open(file_name+'.pkl','rb') as f:
 	datas=pickle.load(f)
