@@ -34,7 +34,7 @@ def extract_ped_pointless(datas,point_cnt):
 
             box3d = o3d.geometry.OrientedBoundingBox(center, rot_mat, dim)
 
-            pcd = o3d.io.read_point_cloud(cur_data['lidar_points']['lidar_path'])
+            pcd = o3d.io.read_point_cloud(root_path+cur_data['lidar_points']['lidar_path'])
             
             indices = box3d.get_point_indices_within_bounding_box(pcd.points)
             if len(indices)<point_cnt:
@@ -44,13 +44,15 @@ def extract_ped_pointless(datas,point_cnt):
         result.append(cur_data)
     return result
 
+root_path='../../data/rf2021/'
+file_name='../../data/rf2021/rf2021_infos_train'
 
-with open('rf2021_infos_train.pkl','rb') as f:
+with open(file_name+'.pkl','rb') as f:
 	datas=pickle.load(f)
 
-ped_cnt=0
+ped_cnt=1
 point_cnt=5
-pcd_cnt=2
+pcd_cnt=100000000
 ped_datas=extract_ped(datas,ped_cnt,pcd_cnt)
 ped_datas=extract_ped_pointless(ped_datas,point_cnt)
 
@@ -63,5 +65,5 @@ for data in ped_datas:
 print(ped_cnt, point_cnt, pcd_cnt, len(ped_datas), ped, max_ped)
 
 
-with open('rf2021_infos_train_ped_'+str(ped_cnt)+'_points_'+str(point_cnt)+'_size2.pkl','wb') as rf:
+with open(file_name+'_ped_'+str(ped_cnt)+'_points_'+str(point_cnt)+'.pkl','wb') as rf:
 	pickle.dump(ped_datas,rf,protocol=pickle.HIGHEST_PROTOCOL)

@@ -37,7 +37,7 @@ def extract_ped_pointless(datas,point_cnt):
 
             box3d = o3d.geometry.OrientedBoundingBox(center, rot_mat, dim)
 
-            pcd = o3d.io.read_point_cloud(cur_data['lidar_points']['lidar_path'])
+            pcd = o3d.io.read_point_cloud(root_path + cur_data['lidar_points']['lidar_path'])
             
             indices = box3d.get_point_indices_within_bounding_box(pcd.points)
             if len(indices)<point_cnt:
@@ -47,7 +47,8 @@ def extract_ped_pointless(datas,point_cnt):
         result.append(cur_data)
     return result
 
-file_name='rf2021_infos_test_height_make_changed_mid'
+root_path = '../../data/rf2021/'
+file_name='../../data/rf2021/rf2021_infos_train'
 
 with open(file_name+'.pkl','rb') as f:
 	datas=pickle.load(f)

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 car_all=0
 ped_all=0
 
-file_name='rf2021_infos_test_height_make'
+file_name='../../data/rf2021/rf2021_infos_train'
 
 with open(file_name+'.pkl','rb') as f:
     datas=pickle.load(f)

@@ -27,7 +27,7 @@ ped_dis5=[0]*12
 car_dis6=[0]*10
 ped_dis6=[0]*10
 
-file_name='rf2021_infos_train'
+file_name='../../data/rf2021/rf2021_infos_train'
 #file_name='rf2021_infos_train_height_make'
 
 with open(file_name+'.pkl','rb') as f:

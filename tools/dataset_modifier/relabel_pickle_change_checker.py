@@ -6,8 +6,7 @@ ped_cnt=0
 car_change=0
 ped_change=0
 
-#file_name='rf2021_infos_train_2class_5_points_10_size3'
-file_name='rf2021_infos_test_height_make'
+file_name='../../data/rf2021/rf2021_infos_test_height_make'
 mode='pred' # or 'mid'
 
 with open(file_name+'.pkl','rb') as f:

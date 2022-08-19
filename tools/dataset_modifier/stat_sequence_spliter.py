@@ -4,14 +4,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 
+root_path = '../../data/rf2021/'
 file_names=[
-    'rf2021_infos_train_height_make',
-    'rf2021_infos_val_height_make',
-    'rf2021_infos_test_height_make',
+    '../../data/rf2021/rf2021_infos_train_height_make',
+    '../../data/rf2021/rf2021_infos_val_height_make',
+    '../../data/rf2021/rf2021_infos_test_height_make',
 ]
 
 sequence_max = 3000
-min_ped = 1
+min_ped = 4
 
 object_cnt=[[0,0,0,0] for i in range(sequence_max)]
 car_all=0
@@ -83,14 +84,14 @@ print(test_set[:10])
 print(car_all, ped_all)
 #plt.show()
 
-if not os.path.exists('sequence_set_ped_'+str(min_ped)):
-    os.makedirs('sequence_set_ped_'+str(min_ped))
+if not os.path.exists(root_path + 'sequence_set_ped_'+str(min_ped)):
+    os.makedirs(root_path + 'sequence_set_ped_'+str(min_ped))
 
-with open('sequence_set_ped_'+str(min_ped)+'/sequence_train_set.pkl','wb') as rf:
+with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_train_set.pkl','wb') as rf:
 	pickle.dump(train_set,rf)
 
-with open('sequence_set_ped_'+str(min_ped)+'/sequence_val_set.pkl','wb') as rf:
+with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_val_set.pkl','wb') as rf:
 	pickle.dump(val_set,rf)
 
-with open('sequence_set_ped_'+str(min_ped)+'/sequence_test_set.pkl','wb') as rf:
+with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_test_set.pkl','wb') as rf:
 	pickle.dump(test_set,rf)

@@ -5,7 +5,7 @@ car_cnt=0
 cyc_cnt=0
 ped_cnt=0
 
-file_name='rf2021_infos_val'
+file_name='../../data/rf2021/rf2021_infos_train'
 
 with open(file_name+'.pkl','rb') as f:
 	datas=pickle.load(f)
