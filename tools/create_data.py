@@ -160,7 +160,8 @@ def additional_height_modifier(box_annot):
     box_annot[:, 1:] = annots
 
 def rf2021_data_prep(root_path,
-                     info_prefix):
+                     info_prefix,
+                     seq):
     """ Prepare data related to RF2021 dataset.
 
     1. loop pcd file directory.
@@ -177,6 +178,7 @@ def rf2021_data_prep(root_path,
     from collections import deque
     from tqdm import tqdm
     import math
+    import pickle
 
     root_path = Path(root_path)
 
@@ -184,9 +186,35 @@ def rf2021_data_prep(root_path,
     label_dir = osp.join(root_path, "NIA_2021_label", "label")
     sample_idx = 0
     annot_deque = deque([])
+
+    if seq!=-1:
+        seq_dir = osp.join(root_path, "sequence_set_ped_"+str(seq))
+        with open(osp.join(seq_dir,'sequence_train_set.pkl'),'rb') as f:
+            train_set=pickle.load(f)
+
+        with open(osp.join(seq_dir,'sequence_val_set.pkl'),'rb') as f:
+            val_set=pickle.load(f)
+
+        with open(osp.join(seq_dir,'sequence_test_set.pkl'),'rb') as f:
+            test_set=pickle.load(f)   
+
+        train_idx=0
+        val_idx=0
+        test_idx=0
+    
     if osp.isdir(pcd_dir):
         folder_list = sorted(os.listdir(pcd_dir), key=lambda x:int(x))
         for fol in tqdm(folder_list):
+            if seq!=-1:
+                if train_idx<len(train_set) and train_set[train_idx]==int(fol):
+                    train_idx+=1
+                elif val_idx<len(val_set) and val_set[val_idx]==int(fol):
+                    val_idx+=1
+                elif test_idx<len(test_set) and test_set[test_idx]==int(fol):
+                    test_idx+=1
+                else:
+                    continue
+                    
             pcd_data_dir = osp.join(pcd_dir, fol, "lidar_half_filtered")
             veh_label_dir = osp.join(label_dir, fol, "car_label")
             ped_label_dir = osp.join(label_dir, fol, "ped_label")
@@ -235,20 +263,57 @@ def rf2021_data_prep(root_path,
         exit()
 
     annot_list = list(annot_deque)
-    total_len = len(annot_list)
-    train_len = int(total_len * 0.8)
-    val_len = int(total_len * 0.1)
-    rf_infos_train = annot_list[:train_len]
+    rf_infos_train = []
+    rf_infos_val = []
+    rf_infos_test = []
+
+    train_idx=0
+    val_idx=0
+    test_idx=0
+    
+    cur_seq=0
+    next_seq=0
+
+    if seq!=-1:
+        for i in range(len(annot_list)):
+            cur_seq=int(annot_list[i]['lidar_points']['lidar_path'][23:28])
+            seq_change=False
+
+            if i<len(annot_list)-1:
+                next_seq=int(annot_list[i+1]['lidar_points']['lidar_path'][23:28])
+                if cur_seq != next_seq:
+                    seq_change=True
+
+            if train_idx<len(train_set) and train_set[train_idx]==cur_seq:
+                rf_infos_train.append(annot_list[i])
+                if seq_change:
+                    train_idx+=1
+
+            elif val_idx<len(val_set) and val_set[val_idx]==cur_seq:
+                rf_infos_val.append(annot_list[i])
+                if seq_change:
+                    val_idx+=1
+
+            elif test_idx<len(test_set) and test_set[test_idx]==cur_seq:
+                rf_infos_test.append(annot_list[i])
+                if seq_change:
+                    test_idx+=1
+    else:
+        total_len = len(annot_list)
+        train_len = int(total_len * 0.8)
+        val_len = int(total_len * 0.1)
+        rf_infos_train = annot_list[:train_len]
+        rf_infos_val = annot_list[train_len:train_len + val_len]
+        rf_infos_test = annot_list[train_len + val_len:]
+
     filename = root_path / f'{info_prefix}_infos_train.pkl'
     print(f'RF2021 info train file is saved to {filename}')
     mmcv.dump(rf_infos_train, filename)
 
-    rf_infos_val = annot_list[train_len:train_len + val_len]
     filename = root_path / f'{info_prefix}_infos_val.pkl'
     print(f'RF2021 info val file is saved to {filename}')
     mmcv.dump(rf_infos_val, filename)
-
-    rf_infos_test = annot_list[train_len + val_len:]
+    
     filename = root_path / f'{info_prefix}_infos_test.pkl'
     print(f'RF2021 info test file is saved to {filename}')
     mmcv.dump(rf_infos_test, filename)
@@ -590,6 +655,12 @@ parser.add_argument(
 parser.add_argument('--extra-tag', type=str, default='kitti')
 parser.add_argument(
     '--workers', type=int, default=4, help='number of threads to be used')
+parser.add_argument(
+    '--seq',
+    type=int,
+    default=-1,
+    help='separating sequence fairly via Ped counts. -1 for nonuse.'
+)
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -608,7 +679,8 @@ if __name__ == '__main__':
     elif args.dataset == 'rf2021':
         rf2021_data_prep(
             root_path=args.root_path,
-            info_prefix=args.extra_tag
+            info_prefix=args.extra_tag,
+            seq=args.seq
         )
     elif args.dataset == 'nuscenes' and args.version != 'v1.0-mini':
         train_version = f'{args.version}-trainval'
