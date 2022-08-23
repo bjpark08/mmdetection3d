@@ -3,41 +3,44 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+from os import path as osp
+from tqdm import tqdm 
 
 root_path = 'data/rf2021/'
-file_names=[
-    'data/rf2021/rf2021_infos_train_height_make',
-    'data/rf2021/rf2021_infos_val_height_make',
-    'data/rf2021/rf2021_infos_test_height_make',
-]
+
+label_dir = osp.join(root_path, "NIA_2021_label", "label")
 
 sequence_max = 3000
-min_ped = 1 # 해당 seq의 평균 ped의 최소값. 예를 들어 min_ped가 1이면 ped갯수의 평균이 1미만인 seq는 학습 및 평가 데이터셋에서 제외됨.
+min_ped = 0 # 해당 seq의 평균 ped의 최소값. 예를 들어 min_ped가 1이면 ped갯수의 평균이 1미만인 seq는 학습 및 평가 데이터셋에서 제외됨.
 
 # [seq의 scene 갯수, seq의 전체 car 갯수, seq의 전체 ped(+cyclist) 갯수, seq번호]  
 object_cnt=[[0,0,0,0] for i in range(sequence_max)]
 car_all=0
 ped_all=0
 
-for file_name in file_names:
-    with open(file_name+'.pkl','rb') as f:
-        datas=pickle.load(f)
-    
-    for data in datas:
-        fol=int(data['lidar_points']['lidar_path'][23:28])-10002
-        object_cnt[fol][0]+=1
-        object_cnt[fol][3]=fol+10002
-        car_cnt=0
-        ped_cnt=0
-        for label in data['annos']['gt_names']:
-            if label=='Car':
-                car_cnt+=1
-            elif label=='Pedestrian':
-                ped_cnt+=1
-        object_cnt[fol][1]+=car_cnt
-        object_cnt[fol][2]+=ped_cnt
-        car_all+=car_cnt
-        ped_all+=ped_cnt
+folder_list = sorted(os.listdir(label_dir), key=lambda x:int(x))
+for fol in tqdm(folder_list):
+    veh_label_dir = osp.join(label_dir, fol, "car_label")
+    ped_label_dir = osp.join(label_dir, fol, "ped_label")
+    fol = int(fol) - 10002
+    object_cnt[fol][0] = len(os.listdir(veh_label_dir))
+    object_cnt[fol][3] = fol + 10002
+    if osp.exists(veh_label_dir):
+        for veh_file in sorted(os.listdir(veh_label_dir)):
+            veh_label_file_path = osp.join(veh_label_dir, veh_file)
+            if osp.exists(veh_label_file_path):
+                annot = np.loadtxt(veh_label_file_path, dtype=np.object_).reshape(-1, 8)
+            else: continue
+            object_cnt[fol][1] += len(annot)
+            car_all+=len(annot)
+    if osp.exists(ped_label_dir):
+        for ped_file in sorted(os.listdir(ped_label_dir)):
+            ped_label_file_path = osp.join(ped_label_dir, ped_file)
+            if osp.exists(ped_label_file_path):
+                annot = np.loadtxt(ped_label_file_path, dtype=np.object_).reshape(-1, 6)
+            else: continue
+            object_cnt[fol][2] += len(annot)
+            ped_all+=len(annot)
 
 for i in range(sequence_max):
     if object_cnt[i][0]==0 or object_cnt[i][2]<object_cnt[i][0]*min_ped:
