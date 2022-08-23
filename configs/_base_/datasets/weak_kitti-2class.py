@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'Custom3DDataset'
-data_root = 'data/rf2021/kitti_dataset/'
+data_root = 'data/kitti/'
 class_names = ['Car', 'Pedestrian']
 point_cloud_range = [0, -40, -3, 70.4, 40, 1]
 #point_cloud_range = [-60, -63.84, -3, 62.88, 60, 1]

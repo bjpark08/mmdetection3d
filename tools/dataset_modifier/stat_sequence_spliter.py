@@ -12,8 +12,9 @@ file_names=[
 ]
 
 sequence_max = 3000
-min_ped = 4
+min_ped = 1 # 해당 seq의 평균 ped의 최소값. 예를 들어 min_ped가 1이면 ped갯수의 평균이 1미만인 seq는 학습 및 평가 데이터셋에서 제외됨.
 
+# [seq의 scene 갯수, seq의 전체 car 갯수, seq의 전체 ped(+cyclist) 갯수, seq번호]  
 object_cnt=[[0,0,0,0] for i in range(sequence_max)]
 car_all=0
 ped_all=0
