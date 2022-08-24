@@ -259,7 +259,7 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
 
     return recall, precision, ap, prec_num, aos
 
-def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
+def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
     car_change=[2,5]
     ped_change=[0,1,2,3,4,5,6]
     car=0
@@ -270,6 +270,7 @@ def pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='m
     import pickle
     with open(pkl_path,'rb') as f:
         datas=pickle.load(f)
+        datas=datas[::load_interval]
 
     nonped_cnts=[0]*len(datas)
     for i in range(len(datas)):
@@ -350,7 +351,8 @@ def indoor_eval(gt_annos,
                 box_mode_3d=None,
                 classes=None,
                 pkl_path=None,
-                relabeling=False):
+                relabeling=False,
+                load_interval=1):
     """Indoor Evaluation.
 
     Evaluate the result of the detection.
@@ -434,9 +436,9 @@ def indoor_eval(gt_annos,
         gts_image_box = {}
         gts_image_num['2d'], gts_image_idx['2d'], gts_image_box['2d'] = \
                     eval_map_recall_relabeling(pred, gt, ovthresh=(0.15,), ioumode='2d', eval_aos=False)
-            
-        pickle_change(pkl_path, gts_image_num, gts_image_idx, gts_image_box, mode='pred')
-        return ret_dict
+        print(pkl_path)
+        pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_image_box, mode='pred')
+        return ret_dict_ioumodes
 
     for ioumode in ioumodes:
         cur_metric=metric
@@ -508,4 +510,4 @@ def indoor_eval(gt_annos,
         print_log('\n' + table.table, logger=logger)
         ret_dict_ioumodes[ioumode]=ret_dict
 
-    return ret_dict
+    return ret_dict_ioumodes

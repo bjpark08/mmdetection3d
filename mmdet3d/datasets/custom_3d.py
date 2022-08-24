@@ -83,7 +83,7 @@ class Custom3DDataset(Dataset):
         self.CLASSES = self.get_classes(classes)
         self.file_client = mmcv.FileClient(**file_client_args)
         self.cat2id = {name: i for i, name in enumerate(self.CLASSES)}
-
+        self.load_interval = load_interval
         # load annotations
         if hasattr(self.file_client, 'get_local_path'):
             with self.file_client.get_local_path(self.ann_file) as local_path:
@@ -352,7 +352,8 @@ class Custom3DDataset(Dataset):
             box_mode_3d=self.box_mode_3d,
             classes=self.CLASSES,
             pkl_path=self.ann_file,
-            relabeling=False)
+            relabeling=True,
+            load_interval=self.load_interval)
         if show:
             self.show(results, out_dir, pipeline=pipeline)
 
