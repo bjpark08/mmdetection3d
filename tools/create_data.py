@@ -242,10 +242,10 @@ def rf2021_data_prep(root_path,
                 
                 if len(annot):
                     invalid_cond = (annot[:, 3] == '-1.00') & (annot[:, 6] == '-1.00')
-                    cz, h = get_estimated_z_h(pcd_file_path, annot[invalid_cond])
+                    cz, h = get_estimated_z_h(pcd_file_path, annot[invalid_cond]) # 일부 z값이 없는 애들은 추가로 만들어줌
                     annot[invalid_cond, 3] = cz
                     annot[invalid_cond, 6] = h
-                    additional_height_modifier(annot)
+                    additional_height_modifier(annot) # z값을 1차적으로 다 채워놓은 상태에서, invalid 해보이는 것들을 추가적으로 수정
                     pcd_file_path = "/".join(pcd_file_path.split("/")[2:])
                     annot_dict = dict(
                         sample_idx= sample_idx,

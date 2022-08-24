@@ -352,7 +352,7 @@ class Custom3DDataset(Dataset):
             box_mode_3d=self.box_mode_3d,
             classes=self.CLASSES,
             pkl_path=self.ann_file,
-            relabeling=True,
+            relabeling=False,
             load_interval=self.load_interval)
         if show:
             self.show(results, out_dir, pipeline=pipeline)
