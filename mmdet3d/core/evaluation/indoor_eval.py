@@ -510,4 +510,6 @@ def indoor_eval(gt_annos,
         print_log('\n' + table.table, logger=logger)
         ret_dict_ioumodes[ioumode]=ret_dict
 
-    return ret_dict_ioumodes
+    # 개념적으로는 이게 맞는데 이걸 리턴하면 학습에 문제가 생김.
+    # return ret_dict_ioumodes
+    return ret_dict
