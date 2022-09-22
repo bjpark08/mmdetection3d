@@ -113,6 +113,15 @@ def parse_args():
         default='none',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument(
+        '--relabeling',
+        action='store_true',
+        help='whether use relabeling or not')
+    parser.add_argument(
+        '--relabeling-pkl',
+        type=str,
+        help='works only with --relabeling. filename of pkl file to relabel'
+    )
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -199,6 +208,11 @@ def main():
     if args.seed is not None:
         set_random_seed(args.seed, deterministic=args.deterministic)
 
+    # change ann_file if relabeling
+    if args.relabeling:
+        cfg.data.test['ann_file'] = cfg.data.test['data_root'] + args.relabeling_pkl
+        cfg['model']['test_cfg']['pts']['score_threshold']=0.01
+
     # build the dataloader
     dataset = build_dataset(cfg.data.test)
     data_loader = build_dataloader(dataset, **test_loader_cfg)
@@ -253,7 +267,7 @@ def main():
             ]:
                 eval_kwargs.pop(key, None)
             eval_kwargs.update(dict(metric=args.eval, **kwargs))
-            print(dataset.evaluate(outputs, **eval_kwargs))
+            print(dataset.evaluate(outputs, **eval_kwargs, relabeling=args.relabeling))
 
 
 if __name__ == '__main__':
