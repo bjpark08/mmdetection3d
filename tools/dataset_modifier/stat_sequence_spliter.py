@@ -12,7 +12,7 @@ file_names=[
 ]
 
 sequence_max = 3000
-min_ped = 4
+min_ped = 0
 
 object_cnt=[[0,0,0,0] for i in range(sequence_max)]
 car_all=0
@@ -59,27 +59,22 @@ plt.hist(object_cnt[:,1], bins=20, density=True, range=(0,100))
 
 all_set=[]
 train_set=[]
-val_set=[]
 test_set=[]
 
 for i in range(object_cnt.shape[0]):
     all_set.append(int(object_cnt[i][3]))
-    if i%10<=7:
-        train_set.append(int(object_cnt[i][3]))
-    elif i%10==8:
-        val_set.append(int(object_cnt[i][3]))
-    else:
+    if i%10==9:
         test_set.append(int(object_cnt[i][3]))
+    else:
+        train_set.append(int(object_cnt[i][3]))
 
 all_set.sort()
 train_set.sort()
-val_set.sort()
 test_set.sort()
 
 print(object_cnt.shape[0])
-print(str(len(train_set))+" "+str(len(val_set))+" "+str(len(test_set)))
+print(str(len(train_set))+" "+str(len(test_set)))
 print(train_set[:10])
-print(val_set[:10])
 print(test_set[:10])
 print(car_all, ped_all)
 #plt.show()
@@ -89,9 +84,6 @@ if not os.path.exists(root_path + 'sequence_set_ped_'+str(min_ped)):
 
 with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_train_set.pkl','wb') as rf:
 	pickle.dump(train_set,rf)
-
-with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_val_set.pkl','wb') as rf:
-	pickle.dump(val_set,rf)
 
 with open(root_path + 'sequence_set_ped_'+str(min_ped)+'/sequence_test_set.pkl','wb') as rf:
 	pickle.dump(test_set,rf)
