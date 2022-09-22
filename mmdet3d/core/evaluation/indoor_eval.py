@@ -429,6 +429,7 @@ def indoor_eval(gt_annos,
     if relabeling:
         print()
         print("==============RELABELING==============")
+        ret_dict = dict()
         gts_image_num = {}
         gts_image_idx = {}
         gts_image_box = {}

@@ -305,11 +305,12 @@ class Custom3DDataset(Dataset):
     def evaluate(self,
                  results,
                  metric=None,
-                 iou_thr=(0.15,0.7),
+                 iou_thr=(0.15,0.5,0.7),
                  logger=None,
                  show=False,
                  out_dir=None,
-                 pipeline=None):
+                 pipeline=None,
+                 relabeling=False):
         """Evaluate.
 
         Evaluation in indoor protocol.
@@ -352,7 +353,7 @@ class Custom3DDataset(Dataset):
             box_mode_3d=self.box_mode_3d,
             classes=self.CLASSES,
             pkl_path=self.ann_file,
-            relabeling=False)
+            relabeling=relabeling)
         if show:
             self.show(results, out_dir, pipeline=pipeline)
 
