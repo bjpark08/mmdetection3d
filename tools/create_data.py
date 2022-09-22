@@ -16,6 +16,7 @@ from mmdet3d.core.bbox import (Box3DMode, CameraInstance3DBoxes, Coord3DMode,
 from pypcd import pypcd
 import numpy as np
 import struct
+import random
 
 def read_PC(pcd_file):
     """
@@ -93,6 +94,7 @@ def get_estimated_z_h(roi_path, box_annot):
     Z_MIN_DEFALUT = -1
     H_DEFAULT = 2.0
     PED_H_DEFAULT = 1.7
+
     for single_annot in box_annot:
         label_cls = single_annot[0]
         box_coor = single_annot[1:].astype(np.float32)
@@ -106,11 +108,15 @@ def get_estimated_z_h(roi_path, box_annot):
             roi_points = roi_points[upper_valid & lower_valid]
             q95, q5 = np.percentile(roi_points[:, 2], [95,5])
             z1, z2 = q5-0.3, q95+0.3
-            h = H_DEFAULT if label_cls != 'Pedestrian' else PED_H_DEFAULT
+
+            h = 1.9+0.2*random.random() if label_cls != 'Pedestrian' else 1.6+0.2*random.random()
+
             # 이 부분을 object class에 따라 구분
-           
-            if abs(z2 - z1) > 4.2:
+            if label_cls == 'Pedestrian' and abs(z2 - z1) > 2.5:
                 z2 = z1 + h
+            elif label_cls != 'Pedestrian' and abs(z2 - z1) > 4.2:
+                z2 = z1 + h
+
             # z1, z2 = min(roi_points[:,2]), max(roi_points[:,2])
             cz, h = int((z1+z2)/2 * 100)/100, int(abs(z2-z1)*100)/100
         except:
@@ -187,19 +193,21 @@ def rf2021_data_prep(root_path,
     sample_idx = 0
     annot_deque = deque([])
 
+    
+    create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
+                            'data/rf2021/relabeling_results/rf2021_seq_infos_train_small.pkl')
+    exit()
+    
+
     if seq!=-1:
         seq_dir = osp.join(root_path, "sequence_set_ped_"+str(seq))
         with open(osp.join(seq_dir,'sequence_train_set.pkl'),'rb') as f:
             train_set=pickle.load(f)
 
-        with open(osp.join(seq_dir,'sequence_val_set.pkl'),'rb') as f:
-            val_set=pickle.load(f)
-
         with open(osp.join(seq_dir,'sequence_test_set.pkl'),'rb') as f:
             test_set=pickle.load(f)   
 
         train_idx=0
-        val_idx=0
         test_idx=0
     
     if osp.isdir(pcd_dir):
@@ -208,8 +216,6 @@ def rf2021_data_prep(root_path,
             if seq!=-1:
                 if train_idx<len(train_set) and train_set[train_idx]==int(fol):
                     train_idx+=1
-                elif val_idx<len(val_set) and val_set[val_idx]==int(fol):
-                    val_idx+=1
                 elif test_idx<len(test_set) and test_set[test_idx]==int(fol):
                     test_idx+=1
                 else:
@@ -264,11 +270,11 @@ def rf2021_data_prep(root_path,
 
     annot_list = list(annot_deque)
     rf_infos_train = []
-    rf_infos_val = []
+    #rf_infos_val = []
     rf_infos_test = []
 
     train_idx=0
-    val_idx=0
+    #val_idx=0
     test_idx=0
     
     cur_seq=0
@@ -289,37 +295,36 @@ def rf2021_data_prep(root_path,
                 if seq_change:
                     train_idx+=1
 
-            elif val_idx<len(val_set) and val_set[val_idx]==cur_seq:
-                rf_infos_val.append(annot_list[i])
-                if seq_change:
-                    val_idx+=1
-
             elif test_idx<len(test_set) and test_set[test_idx]==cur_seq:
                 rf_infos_test.append(annot_list[i])
                 if seq_change:
                     test_idx+=1
     else:
         total_len = len(annot_list)
-        train_len = int(total_len * 0.8)
-        val_len = int(total_len * 0.1)
+        train_len = int(total_len * 0.9) #0.8 for train/val/test
+        #val_len = int(total_len * 0.1)
         rf_infos_train = annot_list[:train_len]
-        rf_infos_val = annot_list[train_len:train_len + val_len]
-        rf_infos_test = annot_list[train_len + val_len:]
+        #rf_infos_val = annot_list[train_len:train_len + val_len]
+        rf_infos_test = annot_list[train_len:] #annot_list[train_len + val_len:] for train/val/test
 
     filename = root_path / f'{info_prefix}_infos_train.pkl'
     print(f'RF2021 info train file is saved to {filename}')
     mmcv.dump(rf_infos_train, filename)
 
-    filename = root_path / f'{info_prefix}_infos_val.pkl'
-    print(f'RF2021 info val file is saved to {filename}')
-    mmcv.dump(rf_infos_val, filename)
+    #filename = root_path / f'{info_prefix}_infos_val.pkl'
+    #print(f'RF2021 info val file is saved to {filename}')
+    #mmcv.dump(rf_infos_val, filename)
     
     filename = root_path / f'{info_prefix}_infos_test.pkl'
     print(f'RF2021 info test file is saved to {filename}')
     mmcv.dump(rf_infos_test, filename)
 
+    filename = root_path / f'{info_prefix}_infos_train_small.pkl'
+    print(f'RF2021 info train(interval 10) file is saved to {filename}')
+    mmcv.dump(rf_infos_train[1::40], filename)
+
     create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-                            root_path / f'{info_prefix}_infos_train.pkl')
+                            root_path / f'{info_prefix}_infos_train_small.pkl')
 
 def weak_kitti_data_prep(root_path,
                     info_prefix):
