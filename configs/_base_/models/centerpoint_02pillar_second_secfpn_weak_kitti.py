@@ -86,4 +86,4 @@ model = dict(
             nms_type='rotate',
             pre_max_size=4096,
             post_max_size=512,
-            nms_thr=0.01)))
+            nms_thr=0.1)))

@@ -28,8 +28,7 @@ db_sampler = dict(
     info_path=data_root + 'rf2021_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
-        filter_by_difficulty=[-1],
-        filter_by_min_points=dict(Car=15, Pedestrian=10)),
+        filter_by_min_points=dict(Car=20, Pedestrian=15)),
     classes=class_names,
     sample_groups=dict(Car=10, Pedestrian=10))
 

@@ -12,7 +12,7 @@ point_cloud_range=[0, -40, -3, 70.4, 40, 1]
 class_names = ['Car', 'Pedestrian']
 
 dataset_type = 'Custom3DDataset'
-data_root = 'data/rf2021/kitti_dataset/'
+data_root = 'data/kitti/'
 file_client_args = dict(backend='disk')
 
 model = dict(
@@ -28,7 +28,6 @@ db_sampler = dict(
     info_path=data_root + 'weak_kitti_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
-        filter_by_difficulty=[-1],
         filter_by_min_points=dict(Car=15, Pedestrian=10)),
     classes=class_names,
     sample_groups=dict(Car=10, Pedestrian=10))
