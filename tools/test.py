@@ -211,6 +211,7 @@ def main():
     # change ann_file if relabeling
     if args.relabeling:
         cfg.data.test['ann_file'] = cfg.data.test['data_root'] + args.relabeling_pkl
+        cfg.data.test['load_interval'] = 1
         cfg['model']['test_cfg']['pts']['score_threshold']=0.01
 
     # build the dataloader

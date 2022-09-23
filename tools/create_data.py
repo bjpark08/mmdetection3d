@@ -194,9 +194,9 @@ def rf2021_data_prep(root_path,
     annot_deque = deque([])
 
     
-    create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-                            'data/rf2021/relabeling_results/rf2021_seq_infos_train_small.pkl')
-    exit()
+    #create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
+    #                        'data/rf2021/relabeling_results/rf2021_seq_infos_train_small.pkl')
+    #exit()
     
 
     if seq!=-1:
@@ -234,7 +234,9 @@ def rf2021_data_prep(root_path,
                     annot[:, [1,2,3,4,5,6]] = annot[:, [4,5,6,2,1,3]]
                     annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
                     annot[annot == 'nan'] = '-1.00'
-                    annot[annot == 'Cyclist'] = 'Pedestrian'
+                    #Ped로 하면 Relabeling시 문제 발생. 원리상 Ped는 뒤에 붙어있어야하는데 Cyclist를 넣으면 Ped가 중간중간에 끼게 되어 (car개수)+(ped번호)로 index를 구할 수 없게 됨. 고로 Cyclist도 Car에 포함시킴
+                    #annot[annot == 'Cyclist'] = 'Pedestrian'
+                    annot[annot == 'Cyclist'] = 'Car'           
                 if osp.exists(ped_label_file_path):
                     annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
                     if len(annot_ped) > 0:
