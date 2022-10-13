@@ -189,16 +189,10 @@ def rf2021_data_prep(root_path,
     root_path = Path(root_path)
 
     pcd_dir = osp.join(root_path, "NIA_tracking_data", "data")
-    label_dir = osp.join(root_path, "NIA_2021_label", "label")
+    label_dir = osp.join(root_path, "NIA_2021_label_new", "label")
     sample_idx = 0
     annot_deque = deque([])
-
     
-    #create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-    #                        'data/rf2021/relabeling_results/rf2021_seq_infos_train_small.pkl')
-    #exit()
-    
-
     if seq!=-1:
         seq_dir = osp.join(root_path, "sequence_set_ped_"+str(seq))
         with open(osp.join(seq_dir,'sequence_train_set.pkl'),'rb') as f:
@@ -228,25 +222,33 @@ def rf2021_data_prep(root_path,
                 pcd_file_path = osp.join(pcd_data_dir, pcd_file)
                 veh_label_file_path = osp.join(veh_label_dir, pcd_file[:-4] + ".txt")
                 ped_label_file_path = osp.join(ped_label_dir, pcd_file[:-4] + ".txt")
-                annot = np.array([])
+                annot_veh = np.array([])
+                annot_ped = np.array([])
                 if osp.exists(veh_label_file_path):
-                    annot = np.loadtxt(veh_label_file_path, dtype=np.object_).reshape(-1, 8)
-                    annot[:, [1,2,3,4,5,6]] = annot[:, [4,5,6,2,1,3]]
-                    annot[:, 7] = math.pi/2 - annot[:, 7].astype(np.float32)
-                    annot[annot == 'nan'] = '-1.00'
-                    #Ped로 하면 Relabeling시 문제 발생. 원리상 Ped는 뒤에 붙어있어야하는데 Cyclist를 넣으면 Ped가 중간중간에 끼게 되어 (car개수)+(ped번호)로 index를 구할 수 없게 됨. 고로 Cyclist도 Car에 포함시킴
-                    #annot[annot == 'Cyclist'] = 'Pedestrian'
-                    annot[annot == 'Cyclist'] = 'Car'           
+                    if os.path.getsize(veh_label_file_path):
+                        annot_veh = np.loadtxt(veh_label_file_path, dtype=np.object_).reshape(-1, 8)
+                        annot_veh[:, [1,2,3,4,5,6]] = annot_veh[:, [4,5,6,2,1,3]]
+                        annot_veh[:, 7] = math.pi/2 - annot_veh[:, 7].astype(np.float32)
+                        annot_veh[annot_veh == 'nan'] = '-1.00'
+                        #Ped로 하면 Relabeling시 문제 발생. 원리상 Ped는 뒤에 붙어있어야하는데 Cyclist를 넣으면 Ped가 중간중간에 끼게 되어 (car개수)+(ped번호)로 index를 구할 수 없게 됨. 고로 Cyclist도 Car에 포함시킴
+                        #annot[annot == 'Cyclist'] = 'Pedestrian'
+                        annot_veh[annot_veh == 'Cyclist'] = 'Car'           
                 if osp.exists(ped_label_file_path):
-                    annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
-                    if len(annot_ped) > 0:
+                    if os.path.getsize(ped_label_file_path):
+                        annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
                         annot_ped[annot_ped == 'nan'] = '-1.00'
                         annot_ped[annot_ped[:, 3] == '-1.00', 3] = '0.7'
                         annot_ped[annot_ped[:, 4] ==  '-1.00', 4] = '0.7'  
                         annot_cls = np.array([["Pedestrian"] for _ in range(len(annot_ped))])
                         annot_angle = np.array([[0] for _ in range(len(annot_ped))])
                         annot_ped = np.hstack((annot_cls, annot_ped, annot_angle))
-                        annot = np.vstack((annot, annot_ped))
+
+                if len(annot_veh)>0 and len(annot_ped)>0:
+                    annot = np.vstack((annot_veh, annot_ped))
+                elif len(annot_veh)>0:
+                    annot = np.copy(annot_veh)
+                elif len(annot_ped)>0:
+                    annot = np.copy(annot_ped)                           
                 
                 if len(annot):
                     invalid_cond = (annot[:, 3] == '-1.00') & (annot[:, 6] == '-1.00')
