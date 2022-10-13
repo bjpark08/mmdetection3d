@@ -1,3 +1,6 @@
+#data/rf2021/{dir_path}에 있는 relabeling dataset과 checkpoints에 있는 relabeling model들에 대해
+#iteration 순서대로 validation 결과를 알려주는 함수
+
 import os, sys
 
 from tools.data_converter.create_gt_database import (
@@ -7,6 +10,7 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 iteration=5
 data_root = 'data/rf2021/'
+dir_path = 'relabeling_results_double_set/'
 
 train1_file = 'rf2021_seq_infos_train1.pkl'
 small_train1_file = 'rf2021_seq_infos_train1_small.pkl'
@@ -19,7 +23,7 @@ checkpoint2_file = 'checkpoints/iter2_0.pth'
 config = 'configs/centerpoint/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021.py'
 work_dir = 'work_dirs/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021/epoch_20.pth'
 
-dir_path='./data/rf2021/relabeling_results_double_set/'
+######## 다른 파일로 돌릴 시 위의 부분들을 고쳐줄 것
 
 cur_train1 = train1_file
 cur_small_train1 = small_train1_file
@@ -40,9 +44,9 @@ for i in range(iteration):
 
     print(f"==============Validation Process of iteration {i+1}==============")
     relabel_valid1_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {'relabeling_results_double_set/' + next_train2}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train2}"
     relabel_valid2_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {'relabeling_results_double_set/' + next_train1}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train1}"
 
     print(relabel_valid1_message)
     os.system(relabel_valid1_message)

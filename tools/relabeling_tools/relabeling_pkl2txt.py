@@ -18,6 +18,9 @@ from tqdm import tqdm
 filename_train='data/rf2021/relabeling_test/rf2021_infos_train_full.pkl'
 filename_val='data/rf2021/rf2021_infos_val_full.pkl'
 filename_test='data/rf2021/rf2021_infos_test_full.pkl'
+root_path = 'data/rf2021/NIA_2021_label_new/label/'
+
+######## 다른 파일로 돌릴 시 위의 부분들을 고쳐줄 것
 
 with open(filename_train,'rb') as f1:
     data_train=pickle.load(f1)
@@ -29,8 +32,6 @@ with open(filename_test,'rb') as f3:
     data_test=pickle.load(f3)
 
 data_full = data_train + data_val + data_test
-
-root_path = 'data/rf2021/NIA_2021_label_new/label/'
 
 for data in tqdm(data_full):
     seq_num=data['lidar_points']['lidar_path'][-13:-8]
