@@ -15,7 +15,7 @@ import os
 from os import path as osp
 from tqdm import tqdm
 
-filename_train='data/rf2021/rf2021_infos_train_full.pkl'
+filename_train='data/rf2021/relabeling_test/rf2021_infos_train_full.pkl'
 filename_val='data/rf2021/rf2021_infos_val_full.pkl'
 filename_test='data/rf2021/rf2021_infos_test_full.pkl'
 

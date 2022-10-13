@@ -91,8 +91,8 @@ for i in range(iteration):
     erase_gt_database_message = \
         f"rm -rf {data_root + 'rf2021_seq_dbinfos_train.pkl'} {data_root + 'rf2021_seq_gt_database'}"
         
-    #print(erase_gt_database_message)
-    #os.system(erase_gt_database_message)
+    print(erase_gt_database_message)
+    os.system(erase_gt_database_message)
 
 
 
