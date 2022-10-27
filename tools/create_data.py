@@ -189,12 +189,13 @@ def rf2021_data_prep(root_path,
     root_path = Path(root_path)
 
     pcd_dir = osp.join(root_path, "NIA_tracking_data", "data")
-    label_dir = osp.join(root_path, "NIA_2021_label_new", "label")
+    NIA_dir = osp.join(root_path, "NIA_2021_label_relabeled")
+    label_dir = osp.join(NIA_dir, "label")
     sample_idx = 0
     annot_deque = deque([])
     
     if seq!=-1:
-        seq_dir = osp.join(root_path, "sequence_set_ped_"+str(seq))
+        seq_dir = osp.join(NIA_dir, "sequence_divisions", "sequence_set_"+str(seq))
         with open(osp.join(seq_dir,'sequence_train_set.pkl'),'rb') as f:
             train_set=pickle.load(f)
 
@@ -237,8 +238,8 @@ def rf2021_data_prep(root_path,
                     if os.path.getsize(ped_label_file_path):
                         annot_ped = np.loadtxt(ped_label_file_path, dtype=np.unicode_).reshape(-1, 6)
                         annot_ped[annot_ped == 'nan'] = '-1.00'
-                        annot_ped[annot_ped[:, 3] == '-1.00', 3] = '0.7'
-                        annot_ped[annot_ped[:, 4] ==  '-1.00', 4] = '0.7'  
+                        annot_ped[annot_ped[:, 3] == '-1.00', 3] = str(0.65 + random.random() * 0.1)
+                        annot_ped[annot_ped[:, 4] ==  '-1.00', 4] = str(0.65 + random.random() * 0.1)  
                         annot_cls = np.array([["Pedestrian"] for _ in range(len(annot_ped))])
                         annot_angle = np.array([[0] for _ in range(len(annot_ped))])
                         annot_ped = np.hstack((annot_cls, annot_ped, annot_angle))
@@ -325,7 +326,7 @@ def rf2021_data_prep(root_path,
 
     filename = root_path / f'{info_prefix}_infos_train_small.pkl'
     print(f'RF2021 info train(interval 10) file is saved to {filename}')
-    mmcv.dump(rf_infos_train[1::40], filename)
+    mmcv.dump(rf_infos_train[1::20], filename)
 
     create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
                             root_path / f'{info_prefix}_infos_train_small.pkl')
@@ -436,12 +437,12 @@ def weak_kitti_data_prep(root_path,
     annot_list_val = list(annot_deque_val)
 
     weak_kitti_infos_train = annot_list_train[:]
-    filename = root_path / f'{info_prefix}_infos_train.pkl'
+    filename = root_path / f'{info_prefix}_{ped_xyset_ratio}_infos_train.pkl'
     print(f'Weak Kitti info train file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_train, filename)
 
     weak_kitti_infos_val = annot_list_val[:]
-    filename = root_path / f'{info_prefix}_infos_val.pkl'
+    filename = root_path / f'{info_prefix}_{ped_xyset_ratio}_infos_val.pkl'
     print(f'Weak Kitti info val file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_val, filename)
 
