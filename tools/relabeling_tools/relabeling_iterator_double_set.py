@@ -1,5 +1,6 @@
 # data/rf2021/{dir_path}에 있는 train1_file, train2_file, small_train1_file, small_train2_file을 이용하여 double set iteration을 돌리는 함수
 
+import pickle
 import os, sys
 
 from tools.data_converter.create_gt_database import (
@@ -9,18 +10,19 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 iteration=5
 data_root = 'data/rf2021/'
-dir_path = 'relabeling_results_double_set/'
+dir_path = 'relabeling_final/'
+original_data = 'original_data/'
 
-prefix = 'rf2021_seq'
-dbinfos_file = 'rf2021_seq_dbinfos_train.pkl'
-gt_data_file = 'rf2021_seq_gt_database'
+prefix = 'rf2021_final'
+dbinfos_file = 'rf2021_final_dbinfos_train.pkl'
+gt_data_file = 'rf2021_final_gt_database'
 
-train1_file = 'rf2021_seq_infos_train1.pkl'
-small_train1_file = 'rf2021_seq_infos_train1_small.pkl'
+train1_file = 'rf2021_final_infos_train1.pkl'
+small_train1_file = 'rf2021_final_infos_train1_small.pkl'
 checkpoint1_file = 'checkpoints/iter1_0.pth'
 
-train2_file = 'rf2021_seq_infos_train2.pkl'
-small_train2_file = 'rf2021_seq_infos_train2_small.pkl'
+train2_file = 'rf2021_final_infos_train2.pkl'
+small_train2_file = 'rf2021_final_infos_train2_small.pkl'
 checkpoint2_file = 'checkpoints/iter2_0.pth'
 
 config = 'configs/centerpoint/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021.py'
@@ -31,6 +33,13 @@ work_dir = 'work_dirs/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021/
 mkdir_message=f"mkdir {data_root + dir_path}"
 #os.system(mkdir_message)
 print(f"Relabeling Results will be saved in {data_root + dir_path}")
+
+# print("Cutting Dataset in Half")
+# with open(filename_train,'rb') as f1:
+#     data_train=pickle.load(f1)
+
+# with open(filename_train,'rb') as f1:
+#     data_train=pickle.load(f1)
 
 cur_train1 = train1_file
 cur_small_train1 = small_train1_file
@@ -141,9 +150,9 @@ for i in range(iteration):
 
     print(f"==============Validation Process of iteration {i+1}==============")
     relabel_valid1_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train2}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {dir_path + cur_train2}"
     relabel_valid2_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train1}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {dir_path + cur_train1}"
 
     print(relabel_valid1_message)
     os.system(relabel_valid1_message)
