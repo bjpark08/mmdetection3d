@@ -352,14 +352,20 @@ def weak_kitti_data_prep(root_path,
     import pickle
     import random
 
-    ped_xyset_ratio=100 # 보행자 레이블 중, 수정할 비율
+    ped_xyset_ratio=0 # 보행자 레이블 중, 수정할 비율
     all_hset_ratio=100 # get_estiamted_z로 높이를 수정할 비율
 
     root_path = Path(root_path)
 
+    #gt_database만 만들기 위한 임시 code
+    #create_groundtruth_database('Custom3DDataset', root_path, f'{info_prefix}_{ped_xyset_ratio}',
+    #                       root_path / f'{info_prefix}_{ped_xyset_ratio}_infos_train.pkl')
+    #exit()
+
+    #kitti의 형식을 그대로 가져온 뒤 kitti의 데이터 변환 함수를 그대로 통과시키고 그 값을 rfdataset 형식으로 바꾼다.
     data={}
-    train_data_dir = osp.join(root_path,"kitti_infos_train.pkl")
-    val_data_dir = osp.join(root_path,"kitti_infos_val.pkl")
+    train_data_dir = osp.join(root_path,"datasets/kitti","kitti_infos_train.pkl")
+    val_data_dir = osp.join(root_path,"datasets/kitti","kitti_infos_val.pkl")
 
     with open(train_data_dir,'rb') as f:
 	    data['train'] = pickle.load(f)
@@ -379,7 +385,7 @@ def weak_kitti_data_prep(root_path,
             loc = annos['location']
             dims = annos['dimensions']
             rots = annos['rotation_y']
-            gt_names = np.array(annos['name'][:])
+            gt_names = np.array(annos['name'][:]).astype(np.object_)
             gt_bboxes_3d = np.concatenate([loc, dims, rots[..., np.newaxis]],
                                         axis=1).astype(np.float32)
 
@@ -388,6 +394,7 @@ def weak_kitti_data_prep(root_path,
             gt_bboxes_3d = gt_bboxes_3d.tensor.numpy()
             gt_bboxes_3d[:,2] += gt_bboxes_3d[:,5]/2.0
             
+            #kitti와 rfdataset label 통합 (Car/Pedestrian/Cyclist/(Dontcare))
             gt_names[gt_names == 'Van'] = 'Car'
             gt_names[gt_names == 'Truck'] = 'Car'
             gt_names[gt_names == 'Tram'] = 'Car'
@@ -414,6 +421,7 @@ def weak_kitti_data_prep(root_path,
                     annot[annot_hset_rand, 6] = h
                     additional_height_modifier(annot)
 
+                #ped를 뒤쪽에 모아서 둠. relabeling 함수 특성상 ped가 뒤쪽에 모여있어야 제대로 돌아가기 때문.
                 annot_nonped = annot[annot[:,0] != 'Pedestrian']
                 annot_ped = annot[annot[:,0] == 'Pedestrian']
                 annot = np.vstack((annot_nonped, annot_ped))
@@ -446,8 +454,8 @@ def weak_kitti_data_prep(root_path,
     print(f'Weak Kitti info val file is saved to {filename}')
     mmcv.dump(weak_kitti_infos_val, filename)
 
-    create_groundtruth_database('Custom3DDataset', root_path, info_prefix,
-                           root_path / f'{info_prefix}_infos_train.pkl')
+    create_groundtruth_database('Custom3DDataset', root_path, f'{info_prefix}_{ped_xyset_ratio}',
+                           root_path / f'{info_prefix}_{ped_xyset_ratio}_infos_train.pkl')
 
 def kitti_data_prep(root_path,
                     info_prefix,

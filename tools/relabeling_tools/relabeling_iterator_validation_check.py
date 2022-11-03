@@ -10,14 +10,18 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 iteration=5
 data_root = 'data/rf2021/'
-dir_path = 'relabeling_results_double_set/'
+dir_path = 'relabeling_final/'
 
-train1_file = 'rf2021_seq_infos_train1.pkl'
-small_train1_file = 'rf2021_seq_infos_train1_small.pkl'
+prefix = 'rf2021_final'
+dbinfos_file = 'rf2021_final_dbinfos_train.pkl'
+gt_data_file = 'rf2021_final_gt_database'
+
+train1_file = 'rf2021_final_infos_train1.pkl'
+small_train1_file = 'rf2021_final_infos_train1_small.pkl'
 checkpoint1_file = 'checkpoints/iter1_0.pth'
 
-train2_file = 'rf2021_seq_infos_train2.pkl'
-small_train2_file = 'rf2021_seq_infos_train2_small.pkl'
+train2_file = 'rf2021_final_infos_train2.pkl'
+small_train2_file = 'rf2021_final_infos_train2_small.pkl'
 checkpoint2_file = 'checkpoints/iter2_0.pth'
 
 config = 'configs/centerpoint/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021.py'
@@ -44,9 +48,9 @@ for i in range(iteration):
 
     print(f"==============Validation Process of iteration {i+1}==============")
     relabel_valid1_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train2}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint1} 2 --eval mAP --show-dir results --validation-pkl {dir_path + cur_train2}"
     relabel_valid2_message = \
-        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {dir_path + next_train1}"
+        f"./tools/dist_test.sh {config} {cur_checkpoint2} 2 --eval mAP --show-dir results --validation-pkl {dir_path + cur_train1}"
 
     print(relabel_valid1_message)
     os.system(relabel_valid1_message)
