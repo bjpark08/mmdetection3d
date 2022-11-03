@@ -260,6 +260,8 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
     return recall, precision, ap, prec_num, aos
 
 def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
+    import matplotlib.pyplot as plt
+
     car_change=[2,5]
     ped_change=[0,1,2,3,4,5,6]
     car=0
@@ -285,6 +287,14 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
                 nonped_cnt+=1
         nonped_cnts[i]=nonped_cnt
 
+    #Relabeling을 하면서 이동한 거리를 histogram으로 보여줌
+    car_z_change=[]
+    ped_x_change=[]
+    ped_y_change=[]
+    ped_xy_change=[]
+    ped_z_change=[]
+
+    #car 부분 relabeling. car쪽은 z,h만 수정
     for i in range(len(gts_image_num['2d'][0][0])):
         if gts_image_num['2d'][0][0][i]>=0:
             image_num=int(gts_image_num['2d'][0][0][i])
@@ -303,14 +313,16 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
                     elif mode=='pred':
                         x=pred_x
                     datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
-                    #print("Car "+str(boxidx)+":"+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
                     if former_x!=x:
                         change=1
                         #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+                    
+                    if boxidx==2:
+                        car_z_change.append(x-former_x)
             if change:
                 car+=1
             
-
+    #ped 부분 relabeling. ped쪽은 x,y,z,l,w,h,theta 전부 수정
     for i in range(len(gts_image_num['2d'][1][0])):
         if gts_image_num['2d'][1][0][i]>=0:
             image_num=int(gts_image_num['2d'][1][0][i])
@@ -328,10 +340,17 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
                     elif mode=='pred':
                         x=pred_x
                     datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
-                    #print("Ped "+str(boxidx)+": "+str(round(former_x,2))+" "+str(round(pred_x,2))+" -> "+str(round(x,2)))
                     if former_x!=x:
                         change=1
                     #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+
+                    if boxidx==0:
+                        ped_x_change.append(x-former_x)
+                    elif boxidx==1:
+                        ped_y_change.append(x-former_x)
+                        ped_xy_change.append((ped_x_change[-1]**2+ped_y_change[-1]**2)**0.5)
+                    elif boxidx==2:
+                        ped_z_change.append(x-former_x)
             if change:
                 ped+=1
 
@@ -341,6 +360,24 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
     print("Car: "+str(car)+"/"+str(car_all)+" ("+str(round(car/car_all,2))+")")
     print("Ped: "+str(ped)+"/"+str(ped_all)+" ("+str(round(ped/ped_all,2))+")")
 
+    #ped_y_graph는 ped_x_graph와 대칭형태일 것이므로 생략
+    car_z_graph=plt.subplot(2,2,1)
+    ped_z_graph=plt.subplot(2,2,2)
+    ped_x_graph=plt.subplot(2,2,3)
+    ped_xy_graph=plt.subplot(2,2,4)
+
+    car_z_graph.hist(car_z_change, bins=10)
+    ped_z_graph.hist(ped_z_change, bins=10)
+    ped_x_graph.hist(ped_x_change, bins=10)
+    ped_xy_graph.hist(ped_xy_change, bins=10)
+
+    car_z_graph.set_title('Car_z')
+    ped_z_graph.set_title('Ped_z')
+    ped_x_graph.set_title('Ped_x')
+    ped_xy_graph.set_title('Ped_xy_distance')
+
+    plt.subplots_adjust(hspace=0.5, wspace=0.3) 
+    plt.savefig(f'{pkl_path}_relabeling.png',dpi=200)
 
 def indoor_eval(gt_annos,
                 dt_annos,
