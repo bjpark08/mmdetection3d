@@ -407,19 +407,19 @@ def weak_kitti_data_prep(root_path,
             if len(annot):
                 bin_dir=osp.join("training/velodyne_reduced/",info['point_cloud']['velodyne_path'][-10:])
 
-                if setting == 'train':
-                    annot_ped = (annot[:, 0] == 'Pedestrian')
-                    annot_xyset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= ped_xyset_ratio
-                    annot_hset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= all_hset_ratio
+                #if setting == 'train': (double set으로 하기 위해 train/val 구분 X)
+                annot_ped = (annot[:, 0] == 'Pedestrian')
+                annot_xyset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= ped_xyset_ratio
+                annot_hset_rand = np.array(random.sample(range(1,101),len(annot[:, 0]))) <= all_hset_ratio
 
-                    annot_xy_change = annot_ped * annot_xyset_rand
-                    annot[annot_xy_change, 4] = str(0.6 + random.random() * 0.1)
-                    annot[annot_xy_change, 5] = str(0.8 + random.random() * 0.1)
+                annot_xy_change = annot_ped * annot_xyset_rand
+                annot[annot_xy_change, 4] = str(0.6 + random.random() * 0.1)
+                annot[annot_xy_change, 5] = str(0.8 + random.random() * 0.1)
 
-                    cz, h = get_estimated_z_h(osp.join(root_path,bin_dir), annot[annot_hset_rand])
-                    annot[annot_hset_rand, 3] = cz
-                    annot[annot_hset_rand, 6] = h
-                    additional_height_modifier(annot)
+                cz, h = get_estimated_z_h(osp.join(root_path,bin_dir), annot[annot_hset_rand])
+                annot[annot_hset_rand, 3] = cz
+                annot[annot_hset_rand, 6] = h
+                additional_height_modifier(annot)
 
                 #ped를 뒤쪽에 모아서 둠. relabeling 함수 특성상 ped가 뒤쪽에 모여있어야 제대로 돌아가기 때문.
                 annot_nonped = annot[annot[:,0] != 'Pedestrian']

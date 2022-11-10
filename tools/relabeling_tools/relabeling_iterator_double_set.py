@@ -10,7 +10,7 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 iteration=5
 data_root = 'data/rf2021/'
-dir_path = 'relabeling_final/'
+dir_path = 'relabeling_final_1104/'
 original_data = 'original_data/'
 
 prefix = 'rf2021_final'
@@ -38,22 +38,22 @@ work_dir = 'work_dirs/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021/
 print(f"Relabeling Results will be saved in {data_root + dir_path}")
 
 
-print("==============Cutting Original Dataset in Half==============")
-with open(data_root + dir_path + original_data + filename_train,'rb') as f1:
-    data_train=pickle.load(f1)
+# print("==============Cutting Original Dataset in Half==============")
+# with open(data_root + dir_path + original_data + filename_train,'rb') as f1:
+#     data_train=pickle.load(f1)
 
-with open(data_root + dir_path + original_data + filename_test,'rb') as f1:
-    data_test=pickle.load(f1)
+# with open(data_root + dir_path + original_data + filename_test,'rb') as f1:
+#     data_test=pickle.load(f1)
 
-data=data_train+data_test
-data1=data[:len(data)//2]
-data2=data[len(data)//2:]
+# data=data_train+data_test
+# data1=data[:len(data)//2]
+# data2=data[len(data)//2:]
 
-with open(data_root + dir_path + train1_file,'wb') as f1:
-    pickle.dump(data1,f1)
+# with open(data_root + dir_path + train1_file,'wb') as f1:
+#     pickle.dump(data1,f1)
 
-with open(data_root + dir_path + train2_file,'wb') as f1:
-    pickle.dump(data2,f1)
+# with open(data_root + dir_path + train2_file,'wb') as f1:
+#     pickle.dump(data2,f1)
 
 #### Process Start
 
@@ -76,6 +76,7 @@ for i in range(iteration):
 
 
     print(f"==============First Training of iteration {i+1}==============")
+    create_groundtruth_database('Custom3DDataset', data_root, prefix, data_root + dir_path + cur_small_train1)
     train_message = \
         f"./tools/dist_train.sh {config} 2 --training-pkl {dir_path + cur_train1} --no-validate"
     move_checkpoint_message = \
@@ -92,10 +93,9 @@ for i in range(iteration):
     print(erase_gt_database_message)
     os.system(erase_gt_database_message)
 
-    create_groundtruth_database('Custom3DDataset', data_root, prefix, data_root + dir_path + cur_small_train2)
-
 
     print(f"==============Second Training of iteration {i+1}==============")
+    create_groundtruth_database('Custom3DDataset', data_root, prefix, data_root + dir_path + cur_small_train2)
     train_message = \
         f"./tools/dist_train.sh {config} 2 --training-pkl {dir_path + cur_train2} --no-validate"
     move_checkpoint_message = \
@@ -160,8 +160,6 @@ for i in range(iteration):
         
     print(erase_gt_database_message)
     os.system(erase_gt_database_message)
-
-    create_groundtruth_database('Custom3DDataset', data_root, prefix, data_root + dir_path + next_small_train1)
 
 
     print(f"==============Validation Process of iteration {i+1}==============")

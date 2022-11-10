@@ -274,6 +274,11 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
         datas=pickle.load(f)
         datas=datas[::load_interval]
 
+    #Relabeling을 하면서 이동한 거리를 histogram으로 보여줌.
+    #단, 메모리 문제 방지를 위해 scene 개수가 10000개 이하일 때만 사용
+    datacnt = len(datas)
+    histogram = True if datacnt<=10000 else False        
+
     nonped_cnts=[0]*len(datas)
     for i in range(len(datas)):
         nonped_cnt=0
@@ -288,11 +293,12 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
         nonped_cnts[i]=nonped_cnt
 
     #Relabeling을 하면서 이동한 거리를 histogram으로 보여줌
-    car_z_change=[]
-    ped_x_change=[]
-    ped_y_change=[]
-    ped_xy_change=[]
-    ped_z_change=[]
+    if histogram:
+        car_z_change=[]
+        ped_x_change=[]
+        ped_y_change=[]
+        ped_xy_change=[]
+        ped_z_change=[]
 
     #car 부분 relabeling. car쪽은 z,h만 수정
     for i in range(len(gts_image_num['2d'][0][0])):
@@ -317,7 +323,7 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
                         change=1
                         #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
                     
-                    if boxidx==2:
+                    if boxidx==2 and histogram:
                         car_z_change.append(x-former_x)
             if change:
                 car+=1
@@ -344,13 +350,14 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
                         change=1
                     #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
 
-                    if boxidx==0:
-                        ped_x_change.append(x-former_x)
-                    elif boxidx==1:
-                        ped_y_change.append(x-former_x)
-                        ped_xy_change.append((ped_x_change[-1]**2+ped_y_change[-1]**2)**0.5)
-                    elif boxidx==2:
-                        ped_z_change.append(x-former_x)
+                    if histogram:
+                        if boxidx==0:
+                            ped_x_change.append(x-former_x)
+                        elif boxidx==1:
+                            ped_y_change.append(x-former_x)
+                            ped_xy_change.append((ped_x_change[-1]**2+ped_y_change[-1]**2)**0.5)
+                        elif boxidx==2:
+                            ped_z_change.append(x-former_x)
             if change:
                 ped+=1
 
@@ -361,23 +368,24 @@ def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_ima
     print("Ped: "+str(ped)+"/"+str(ped_all)+" ("+str(round(ped/ped_all,2))+")")
 
     #ped_y_graph는 ped_x_graph와 대칭형태일 것이므로 생략
-    car_z_graph=plt.subplot(2,2,1)
-    ped_z_graph=plt.subplot(2,2,2)
-    ped_x_graph=plt.subplot(2,2,3)
-    ped_xy_graph=plt.subplot(2,2,4)
+    if histogram:
+        car_z_graph=plt.subplot(2,2,1)
+        ped_z_graph=plt.subplot(2,2,2)
+        ped_x_graph=plt.subplot(2,2,3)
+        ped_xy_graph=plt.subplot(2,2,4)
 
-    car_z_graph.hist(car_z_change, bins=10)
-    ped_z_graph.hist(ped_z_change, bins=10)
-    ped_x_graph.hist(ped_x_change, bins=10)
-    ped_xy_graph.hist(ped_xy_change, bins=10)
+        car_z_graph.hist(car_z_change, bins=10)
+        ped_z_graph.hist(ped_z_change, bins=10)
+        ped_x_graph.hist(ped_x_change, bins=10)
+        ped_xy_graph.hist(ped_xy_change, bins=10)
 
-    car_z_graph.set_title('Car_z')
-    ped_z_graph.set_title('Ped_z')
-    ped_x_graph.set_title('Ped_x')
-    ped_xy_graph.set_title('Ped_xy_distance')
+        car_z_graph.set_title('Car_z')
+        ped_z_graph.set_title('Ped_z')
+        ped_x_graph.set_title('Ped_x')
+        ped_xy_graph.set_title('Ped_xy_distance')
 
-    plt.subplots_adjust(hspace=0.5, wspace=0.3) 
-    plt.savefig(f'{pkl_path}_relabeling.png',dpi=200)
+        plt.subplots_adjust(hspace=0.5, wspace=0.3) 
+        plt.savefig(f'{pkl_path}_relabeling.png',dpi=200)
 
 def indoor_eval(gt_annos,
                 dt_annos,
