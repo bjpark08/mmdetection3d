@@ -25,7 +25,7 @@ model = dict(
 
 db_sampler = dict(
     data_root=data_root,
-    info_path=data_root + 'rf2021_seq_dbinfos_train.pkl',
+    info_path=data_root + 'rf2021_final_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
         filter_by_min_points=dict(Car=20, Pedestrian=15)),

@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'Custom3DDataset'
-data_root = 'data/kitti/'
+data_root = 'data/kitti_relabeling/'
 class_names = ['Car', 'Pedestrian']
 point_cloud_range = [0, -40, -3, 70.4, 40, 1]
 #point_cloud_range = [-60, -63.84, -3, 62.88, 60, 1]
@@ -14,7 +14,7 @@ file_client_args = dict(backend='disk')
 
 db_sampler = dict(
     data_root=data_root,
-    info_path=data_root + 'weak_kitti_dbinfos_train.pkl',
+    info_path=data_root + 'weak_kitti_20_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
         filter_by_difficulty=[-1],
@@ -106,7 +106,7 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'weak_kitti_infos_train.pkl',
+            ann_file=data_root + 'ori_kitti_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             test_mode=False,

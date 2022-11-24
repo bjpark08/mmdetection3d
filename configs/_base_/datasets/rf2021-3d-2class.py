@@ -14,7 +14,7 @@ file_client_args = dict(backend='disk')
 
 db_sampler = dict(
     data_root=data_root,
-    info_path=data_root + 'rf2021_seq_dbinfos_train.pkl',
+    info_path=data_root + 'rf2021_final_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
         filter_by_difficulty=[-1],
@@ -106,14 +106,14 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'rf2021_infos_train.pkl',
+            ann_file=data_root + 'rf2021_relabeled_single_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             test_mode=False,
             # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
             # and box_type_3d='Depth' in sunrgbd and scannet dataset.
             box_type_3d='LiDAR',
-            load_interval=10)),
+            load_interval=50)),
     val=dict(
         type=dataset_type,
         data_root=data_root,
@@ -131,6 +131,5 @@ data = dict(
         test_mode=True,
         box_type_3d='LiDAR',
         load_interval=50))
-        #load_interval=1))
 
 evaluation = dict(interval=1, pipeline=eval_pipeline)

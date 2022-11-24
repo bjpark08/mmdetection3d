@@ -9,18 +9,18 @@ from tools.data_converter.create_gt_database import (
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
-iteration=5
+iteration=3
 data_root = 'data/rf2021/'
-dir_path='relabeling_results/'
+dir_path='relabeling_final_single/'
 
-prefix = 'rf2021_seq'
-dbinfos_file = 'rf2021_seq_dbinfos_train.pkl'
-gt_data_file = 'rf2021_seq_gt_database'
+prefix = 'rf2021_final'
+dbinfos_file = 'rf2021_final_dbinfos_train.pkl'
+gt_data_file = 'rf2021_final_gt_database'
 
-train_file = 'rf2021_seq_infos_train.pkl'
+train_file = 'rf2021_final_infos_train.pkl'
 #val_file = 'rf2021_infos_val_height_make.pkl'  # don't use val anymore
-test_file = 'rf2021_seq_infos_test.pkl'
-small_train_file = 'rf2021_seq_infos_train_small.pkl'
+test_file = 'rf2021_final_infos_test.pkl'
+small_train_file = 'rf2021_final_infos_train_small.pkl'
 checkpoint_file = 'checkpoints/iter_0.pth'
 
 config = 'configs/centerpoint/centerpoint_02pillar_second_secfpn_4x8_cyclic_20e_rf_2021.py'
