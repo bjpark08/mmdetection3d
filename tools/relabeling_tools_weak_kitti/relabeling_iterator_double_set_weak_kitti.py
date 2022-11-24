@@ -11,11 +11,11 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 iteration=5
 data_root = 'data/kitti_relabeling/'
-dir_path = 'relabeling_80/'
+dir_path = 'relabeling_20/'
 
 original_data = 'original_data/'
 
-percent = '80'
+percent = '20'
 prefix = 'weak_kitti_'+ percent
 dbinfos_file = prefix + '_dbinfos_train.pkl'
 gt_data_file = prefix + '_gt_database'
