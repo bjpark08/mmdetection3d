@@ -178,8 +178,8 @@ def rf2021_data_prep(root_path,
 
     """
 
-    # Relabeling이 완료되고 형식도 최신 txt 형식으로 바뀐 폴더에서 최종적으로 사용할 pkl 파일을 만드는 함수
-    # 원본 label 데이터 (이전 형식 txt, nan 포함된 label)에서 relabeling으로 돌릴 pkl 파일을 만드는 건 create_prerelabeling_data.py 사용
+    # 원본 label 데이터 (이전 형식 txt, nan 포함된 label)에서 relabeling으로 돌릴 pkl 파일을 만드는 함수
+    # Relabeling 후에 제대로 된 label값은 create_data.py 사용
 
     import os
     from pathlib import Path
@@ -193,7 +193,7 @@ def rf2021_data_prep(root_path,
     root_path = Path(root_path)
 
     pcd_dir = osp.join(root_path, "NIA_tracking_data", "data") 
-    NIA_dir = osp.join(root_path, "NIA_2021_label_relabeled_single_set")  #원본 label 데이터 폴더
+    NIA_dir = osp.join(root_path, "NIA_2021_label_final")  #원본 label 데이터 폴더
     label_dir = osp.join(NIA_dir, "label")
     sample_idx = 0
     annot_deque = deque([])
@@ -232,10 +232,28 @@ def rf2021_data_prep(root_path,
                 if osp.exists(veh_label_file_path):
                     if os.path.getsize(veh_label_file_path):
                         annot_veh = np.loadtxt(veh_label_file_path, dtype=np.object_).reshape(-1, 8)
+                        annot_veh[annot_veh == 'nan'] = '-1.00'
+
+                        #txt 형식에 따라 주석 풀어줄 것.
+                        annot_veh[:, [1,2,3,4,5,6]] = annot_veh[:, [4,5,6,2,1,3]]
+                        annot_veh[:, 7] = math.pi/2 - annot_veh[:, 7].astype(np.float32)
+
+                        #Relabeling을 위한 데이터 제작시 Cyclist를 Car로 통합. 새로 만든 txt로 pkl 만들때는 주석 처리해야함.
+                        #원리상 Ped는 뒤에 붙어있어야하는데 Cyclist를 넣으면 Ped가 중간중간에 끼게 되어 (car개수)+(ped번호)로 index를 구할 수 없게 됨.
+                        annot_veh[annot_veh == 'Cyclist'] = 'Car'           
 
                 if osp.exists(ped_label_file_path):
                     if os.path.getsize(ped_label_file_path):
-                        annot_ped = np.loadtxt(ped_label_file_path, dtype=np.object_).reshape(-1, 8)
+                        annot_ped = np.loadtxt(ped_label_file_path, dtype=np.object_).reshape(-1, 6)
+                        annot_ped[annot_ped == 'nan'] = '-1.00'
+
+                        #Relabeling을 위한 데이터 제작시 width, length에 랜덤한 값 넣어줌.
+                        #랜덤하게 조정할 필요 없다면 아래 다섯줄 주석
+                        annot_ped[annot_ped[:, 4] == '-1.00', 4] = str(0.65 + random.random() * 0.1)
+                        annot_ped[annot_ped[:, 5] ==  '-1.00', 5] = str(0.65 + random.random() * 0.1)  
+                        annot_cls = np.array([["Pedestrian"] for _ in range(len(annot_ped))])
+                        annot_angle = np.array([[0] for _ in range(len(annot_ped))])
+                        annot_ped = np.hstack((annot_cls, annot_ped, annot_angle))
 
                 if len(annot_veh)>0 and len(annot_ped)>0:
                     annot = np.vstack((annot_veh, annot_ped))
@@ -245,6 +263,11 @@ def rf2021_data_prep(root_path,
                     annot = np.copy(annot_ped)                           
                 
                 if len(annot):
+                    invalid_cond = (annot[:, 3] == '-1.00') & (annot[:, 6] == '-1.00')
+                    cz, h = get_estimated_z_h(pcd_file_path, annot[invalid_cond]) # 일부 z값이 없는 애들은 추가로 만들어줌
+                    annot[invalid_cond, 3] = cz
+                    annot[invalid_cond, 6] = h
+                    additional_height_modifier(annot) # z값을 1차적으로 다 채워놓은 상태에서, invalid 해보이는 것들을 추가적으로 수정
                     pcd_file_path = "/".join(pcd_file_path.split("/")[2:])
                     annot_dict = dict(
                         sample_idx= sample_idx,
