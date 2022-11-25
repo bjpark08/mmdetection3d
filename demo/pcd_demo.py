@@ -31,13 +31,18 @@ def main():
     result, data = inference_detector(model, args.pcd)
 
     target=None
-    with open('./data/rf2021/rf2021_infos_train.pkl','rb') as f:
+    with open('./data/rf2021/rf2021_infos_train_height_make.pkl','rb') as f:
 	    gt_datas=pickle.load(f)
 
     for gt_data in gt_datas:
         if gt_data['lidar_points']['lidar_path']==args.pcd[12:]:
             target=gt_data['annos']['gt_bboxes_3d']
             break
+
+    aug_datas=None
+    with open('./data/rf2021/sampler.pkl','rb') as f:
+        aug_datas=pickle.load(f)
+    aug_datas=aug_datas[0]['gt_bboxes_3d']     
 
     # show the results
     show_result_meshlab(
@@ -48,7 +53,8 @@ def main():
         show=args.show,
         snapshot=args.snapshot,
         task='det',
-        target=target)
+        target=target,
+        aug_datas=aug_datas)
 
 
 if __name__ == '__main__':

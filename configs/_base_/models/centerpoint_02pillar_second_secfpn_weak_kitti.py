@@ -1,12 +1,12 @@
-voxel_size = [0.2, 0.2, 4]
+voxel_size = [0.1, 0.1, 4]
 
 model = dict(
     type='CenterPoint',
     pts_voxel_layer=dict(
         max_num_points=20,
-        point_cloud_range=[-60, -100.0, -3, 60.0, 60, 1],
+        point_cloud_range=[0, -40, -3, 70.4, 40, 1],
         voxel_size=voxel_size,
-        max_voxels=(32000, 40000)),
+        max_voxels=(16000, 40000)),
 
     pts_voxel_encoder=dict(
         type='PillarFeatureNet',
@@ -14,12 +14,12 @@ model = dict(
         feat_channels=[64],
         with_distance=False,
         voxel_size = voxel_size,
-        point_cloud_range=[-60, -100.0, -3, 60.0, 60, 1],
+        point_cloud_range=[0, -40, -3, 70.4, 40, 1],
         norm_cfg=dict(type='BN1d', eps=1e-3, momentum=0.01),
         legacy=False),
 
     pts_middle_encoder=dict(
-        type='PointPillarsScatter', in_channels=64, output_shape=[800, 600]),     #output_shape = 512 , 384
+        type='PointPillarsScatter', in_channels=64, output_shape=[800, 704]),     #output_shape = 512 , 384
 
     pts_backbone=dict(
         type='SECOND',
@@ -50,7 +50,7 @@ model = dict(
         share_conv_channel=64,
         bbox_coder=dict(
             type='CenterPointBBoxCoder',
-            post_center_range=[-60, -100.0, -3, 60.0, 60, 1],
+            post_center_range=[0, -40, -3, 70.4, 40, 1],
             max_num=500,
             score_threshold=0.1,
             out_size_factor=4,
@@ -65,7 +65,7 @@ model = dict(
     train_cfg=dict(
         pts=dict(
             # point_cloud_range=[-60, -103.84, -3, 62.88, 60, 1],
-            grid_size=[600, 800, 1],
+            grid_size=[704, 800, 1],
             voxel_size=voxel_size,
             out_size_factor=4,
             dense_reg=1,
@@ -76,7 +76,7 @@ model = dict(
     test_cfg=dict(
         pts=dict(
             # point_cloud_range=[-60, -103.84, -3, 62.88, 60, 1],
-            post_center_limit_range=[-60, -100.0, -3, 60.0, 60, 1],
+            post_center_limit_range=[0, -40, -3, 70.4, 40, 1],
             max_per_img=500,
             max_pool_nms=False,
             min_radius=[4, 12, 10, 1, 0.85, 0.175],

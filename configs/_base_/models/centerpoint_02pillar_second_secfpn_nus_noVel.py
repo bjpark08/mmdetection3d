@@ -1,26 +1,18 @@
-voxel_size = [0.2, 0.2, 4]
-
+voxel_size = [0.2, 0.2, 8]
 model = dict(
     type='CenterPoint',
     pts_voxel_layer=dict(
-        max_num_points=20,
-        point_cloud_range=[-60, -100.0, -3, 60.0, 60, 1],
-        voxel_size=voxel_size,
-        max_voxels=(32000, 40000)),
-
+        max_num_points=20, voxel_size=voxel_size, max_voxels=(30000, 40000)),
     pts_voxel_encoder=dict(
         type='PillarFeatureNet',
-        in_channels=4,
+        in_channels=5,
         feat_channels=[64],
         with_distance=False,
-        voxel_size = voxel_size,
-        point_cloud_range=[-60, -100.0, -3, 60.0, 60, 1],
+        voxel_size=(0.2, 0.2, 8),
         norm_cfg=dict(type='BN1d', eps=1e-3, momentum=0.01),
         legacy=False),
-
     pts_middle_encoder=dict(
-        type='PointPillarsScatter', in_channels=64, output_shape=[800, 600]),     #output_shape = 512 , 384
-
+        type='PointPillarsScatter', in_channels=64, output_shape=(512, 512)),
     pts_backbone=dict(
         type='SECOND',
         in_channels=64,
@@ -41,16 +33,20 @@ model = dict(
         type='CenterHead',
         in_channels=sum([128, 128, 128]),
         tasks=[
-            # dict(num_class=2, class_names=['Car','Pedestrian'])
-            dict(num_class=1, class_names=['Car']),
-            dict(num_class=1, class_names=['Pedestrian'])
+            #dict(num_class=7, class_names=['car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'motorcycle', 'bicycle'])
+            dict(num_class=1, class_names=['car']),
+            dict(num_class=2, class_names=['truck', 'construction_vehicle']),
+            dict(num_class=2, class_names=['bus', 'trailer']),
+            dict(num_class=1, class_names=['barrier']),
+            dict(num_class=2, class_names=['motorcycle', 'bicycle']),
+            dict(num_class=2, class_names=['pedestrian', 'traffic_cone']),
         ],
         common_heads=dict(
             reg=(2, 2), height=(1, 2), dim=(3, 2), rot=(2, 2)),
         share_conv_channel=64,
         bbox_coder=dict(
             type='CenterPointBBoxCoder',
-            post_center_range=[-60, -100.0, -3, 60.0, 60, 1],
+            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
             max_num=500,
             score_threshold=0.1,
             out_size_factor=4,
@@ -64,8 +60,7 @@ model = dict(
     # model training and testing settings
     train_cfg=dict(
         pts=dict(
-            # point_cloud_range=[-60, -103.84, -3, 62.88, 60, 1],
-            grid_size=[600, 800, 1],
+            grid_size=[512, 512, 1],
             voxel_size=voxel_size,
             out_size_factor=4,
             dense_reg=1,
@@ -75,15 +70,15 @@ model = dict(
             code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
     test_cfg=dict(
         pts=dict(
-            # point_cloud_range=[-60, -103.84, -3, 62.88, 60, 1],
-            post_center_limit_range=[-60, -100.0, -3, 60.0, 60, 1],
+            post_center_limit_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
             max_per_img=500,
             max_pool_nms=False,
             min_radius=[4, 12, 10, 1, 0.85, 0.175],
-            score_threshold=0.3,
+            score_threshold=0.1,
+            pc_range=[-51.2, -51.2],
             out_size_factor=4,
             voxel_size=voxel_size[:2],
             nms_type='rotate',
-            pre_max_size=4096,
-            post_max_size=512,
-            nms_thr=0.1)))
+            pre_max_size=1000,
+            post_max_size=83,
+            nms_thr=0.2)))

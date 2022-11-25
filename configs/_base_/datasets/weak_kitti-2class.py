@@ -1,8 +1,8 @@
 # dataset settings
 dataset_type = 'Custom3DDataset'
-data_root = 'data/rf2021/'
+data_root = 'data/kitti_relabeling/'
 class_names = ['Car', 'Pedestrian']
-point_cloud_range = [-60, -103.84, -3, 62.88, 60, 1]
+point_cloud_range = [0, -40, -3, 70.4, 40, 1]
 #point_cloud_range = [-60, -63.84, -3, 62.88, 60, 1]
 
 file_client_args = dict(backend='disk')
@@ -14,14 +14,14 @@ file_client_args = dict(backend='disk')
 
 db_sampler = dict(
     data_root=data_root,
-    info_path=data_root + 'rf2021_final_dbinfos_train.pkl',
+    info_path=data_root + 'weak_kitti_20_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
-        # filter_by_min_points=dict(Car=10, Pedestrian=10),
-        filter_by_min_points_and_range=dict(Car=[10], Pedestrian=[50, 100, 150])
-    ),
+        filter_by_difficulty=[-1],
+        filter_by_min_points=dict(Car=10, Pedestrian=10)),
     classes=['Car', 'Pedestrian'],
     sample_groups=dict(Car=10, Pedestrian=15))
+
 
 train_pipeline = [
     dict(
@@ -106,18 +106,18 @@ data = dict(
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'rf2021_relabeled_single_infos_train.pkl',
+            ann_file=data_root + 'ori_kitti_infos_train.pkl',
             pipeline=train_pipeline,
             classes=class_names,
             test_mode=False,
             # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
             # and box_type_3d='Depth' in sunrgbd and scannet dataset.
             box_type_3d='LiDAR',
-            load_interval=50)),
+            load_interval=1)),
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'rf2021_infos_val.pkl',
+        ann_file=data_root + 'ori_kitti_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -125,11 +125,10 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'rf2021_infos_test.pkl',
+        ann_file=data_root + 'ori_kitti_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
-        box_type_3d='LiDAR',
-        load_interval=50))
+        box_type_3d='LiDAR'))
 
 evaluation = dict(interval=1, pipeline=eval_pipeline)

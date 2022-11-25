@@ -53,7 +53,7 @@ def average_precision(recalls, precisions, mode='area'):
     return ap
 
 
-def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
+def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False, relabeling=False):
     """Generic functions to compute precision/recall for object detection for a
     single class.
 
@@ -88,7 +88,9 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
     image_ids = []
     confidence = []
     pred_angle = []
+    pred_box = []
     ious = []
+    height = []
     for img_id in pred.keys():
         cur_num = len(pred[img_id])
         if cur_num == 0:
@@ -98,6 +100,8 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
         for box, score in pred[img_id]:
             image_ids.append(img_id)
             confidence.append(score)
+            if relabeling:
+                pred_box.append(box.tensor[0])
             pred_angle.append(float(box.tensor[0][6]))
             pred_cur[box_idx] = box.tensor
             box_idx += 1
@@ -120,12 +124,18 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
     image_ids = [image_ids[x] for x in sorted_ind]
     ious = [ious[x] for x in sorted_ind]
     angle = [pred_angle[x] for x in sorted_ind]
+    if relabeling:
+        box = [pred_box[x] for x in sorted_ind]
 
     # go down dets and mark TPs and FPs
     nd = len(image_ids)
     tp_thr = [np.zeros(nd) for i in iou_thr]
     fp_thr = [np.zeros(nd) for i in iou_thr]
     sim_thr = [np.zeros(nd) for i in iou_thr]
+    if relabeling:
+        gt_idx_thr = [-np.ones(nd) for i in iou_thr]
+        gt_image_thr = [-np.ones(nd) for i in iou_thr]
+        gt_box_thr = [-np.ones((nd, 7)) for i in iou_thr]
     for d in range(nd):
         R = class_recs[image_ids[d]]
         iou_max = -np.inf
@@ -146,6 +156,10 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
                 if not R['det'][iou_idx][jmax]:
                     tp_thr[iou_idx][d] = 1.
                     R['det'][iou_idx][jmax] = 1
+                    if relabeling:
+                        gt_idx_thr[iou_idx][d] = jmax
+                        gt_image_thr[iou_idx][d] = image_ids[d]
+                        gt_box_thr[iou_idx][d] = box[d]
                     if eval_aos:
                         delta=BBGT[jmax].tensor[0][6]-angle[d]
                         sim_thr[iou_idx][d] = (1.0 + np.cos(delta)) / 2.0
@@ -155,6 +169,10 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
                 fp_thr[iou_idx][d] = 1.
 
     ret = []
+    if relabeling:
+        ret.append((gt_image_thr, gt_idx_thr, gt_box_thr))
+        return ret
+
     # print("class:",classname)
     for iou_idx, thresh in enumerate(iou_thr):
         # compute precision recall
@@ -169,11 +187,27 @@ def eval_det_cls(pred, gt, iou_thr=None, ioumode='3d', eval_aos=False):
         aos = None
         if eval_aos:
             aos = average_precision(recall, similarity)
-            
-        ret.append((recall, precision, ap, tp, fp, aos))        
+        
+        ret.append((recall, precision, ap, tp, fp, aos))
 
     return ret
 
+def eval_map_recall_relabeling(pred, gt, ovthresh=(0.15,), ioumode='2d', eval_aos=False):
+    ret_values = {}
+    for classname in gt.keys():
+        if classname in pred:
+            ret_values[classname] = eval_det_cls(pred[classname],
+                                                 gt[classname], ovthresh, ioumode, eval_aos, relabeling=True)
+    gt_image_num = {}
+    gt_image_idx = {}
+    gt_image_box = {}
+
+    for label in gt.keys():
+        for iou_idx, thresh in enumerate(ovthresh):
+            if label in pred:
+                gt_image_num[label], gt_image_idx[label], gt_image_box[label] = ret_values[label][iou_idx]
+
+    return gt_image_num, gt_image_idx, gt_image_box
 
 def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
     """Evaluate mAP and recall.
@@ -208,8 +242,8 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
     for label in gt.keys():
         for iou_idx, thresh in enumerate(ovthresh):
             if label in pred:
-                recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][
-                    label], tp[iou_idx][label], fp[iou_idx][label], aos[iou_idx][label] = ret_values[label][iou_idx]
+                recall[iou_idx][label], precision[iou_idx][label], ap[iou_idx][label], tp[iou_idx][label], \
+                    fp[iou_idx][label], aos[iou_idx][label] = ret_values[label][iou_idx]
                 gt_num = sum([len(gt[label][i]) for i in pred[label].keys()])
                 tp_num = int(tp[iou_idx][label][-1])
                 fp_num = int(fp[iou_idx][label][-1])
@@ -225,6 +259,133 @@ def eval_map_recall(pred, gt, ovthresh=None, ioumode='3d', eval_aos=False):
 
     return recall, precision, ap, prec_num, aos
 
+def pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_image_box, mode='mid'):
+    import matplotlib.pyplot as plt
+
+    car_change=[2,5]
+    ped_change=[0,1,2,3,4,5,6]
+    car=0
+    ped=0
+    car_all=0
+    ped_all=0
+
+    import pickle
+    with open(pkl_path,'rb') as f:
+        datas=pickle.load(f)
+        datas=datas[::load_interval]
+
+    #Relabeling을 하면서 이동한 거리를 histogram으로 보여줌.
+    #단, 메모리 문제 방지를 위해 scene 개수가 10000개 이하일 때만 사용
+    datacnt = len(datas)
+    histogram = True if datacnt<=10000 else False        
+
+    nonped_cnts=[0]*len(datas)
+    for i in range(len(datas)):
+        nonped_cnt=0
+        for j in range(len(datas[i]['annos']['gt_names'])):
+            if datas[i]['annos']['gt_names'][j]=='Pedestrian':
+                ped_all+=1
+            elif datas[i]['annos']['gt_names'][j]=='Car':
+                nonped_cnt+=1
+                car_all+=1
+            else:
+                nonped_cnt+=1
+        nonped_cnts[i]=nonped_cnt
+
+    #Relabeling을 하면서 이동한 거리를 histogram으로 보여줌
+    if histogram:
+        car_z_change=[]
+        ped_x_change=[]
+        ped_y_change=[]
+        ped_xy_change=[]
+        ped_z_change=[]
+
+    #car 부분 relabeling. car쪽은 z,h만 수정
+    for i in range(len(gts_image_num['2d'][0][0])):
+        if gts_image_num['2d'][0][0][i]>=0:
+            image_num=int(gts_image_num['2d'][0][0][i])
+            image_idx=int(gts_image_idx['2d'][0][0][i])
+
+            change=0
+            for boxidx in range(7):
+                if boxidx in car_change:
+                    former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
+                    pred_x=gts_image_box['2d'][0][0][i][boxidx]
+                    if boxidx==2:
+                        pred_x+=gts_image_box['2d'][0][0][i][5]/2.0
+
+                    if mode=='mid':
+                        x=(former_x+pred_x)/2.0
+                    elif mode=='pred':
+                        x=pred_x
+                    datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
+                    if former_x!=x:
+                        change=1
+                        #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+                    
+                    if boxidx==2 and histogram:
+                        car_z_change.append(x-former_x)
+            if change:
+                car+=1
+            
+    #ped 부분 relabeling. ped쪽은 x,y,z,l,w,h,theta 전부 수정
+    for i in range(len(gts_image_num['2d'][1][0])):
+        if gts_image_num['2d'][1][0][i]>=0:
+            image_num=int(gts_image_num['2d'][1][0][i])
+            image_idx=int(gts_image_idx['2d'][1][0][i])+nonped_cnts[image_num]
+            
+            change=0
+            for boxidx in range(7):
+                if boxidx in ped_change:
+                    former_x=datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]
+                    pred_x=gts_image_box['2d'][1][0][i][boxidx]
+                    if boxidx==2:
+                        pred_x+=gts_image_box['2d'][1][0][i][5]/2.0
+                    if mode=='mid':
+                        x=(former_x+pred_x)/2.0
+                    elif mode=='pred':
+                        x=pred_x
+                    datas[image_num]['annos']['gt_bboxes_3d'][image_idx][boxidx]=x
+                    if former_x!=x:
+                        change=1
+                    #print("Caution! "+str(image_num)+"  "+str(datas[image_num]['annos']['gt_bboxes_3d'][image_idx][:3]))
+
+                    if histogram:
+                        if boxidx==0:
+                            ped_x_change.append(x-former_x)
+                        elif boxidx==1:
+                            ped_y_change.append(x-former_x)
+                            ped_xy_change.append((ped_x_change[-1]**2+ped_y_change[-1]**2)**0.5)
+                        elif boxidx==2:
+                            ped_z_change.append(x-former_x)
+            if change:
+                ped+=1
+
+    with open(pkl_path[:-4]+'_changed_'+mode+'.pkl','wb') as f:
+        pickle.dump(datas,f,protocol=pickle.HIGHEST_PROTOCOL)
+    
+    print("Car: "+str(car)+"/"+str(car_all)+" ("+str(round(car/car_all,2))+")")
+    print("Ped: "+str(ped)+"/"+str(ped_all)+" ("+str(round(ped/ped_all,2))+")")
+
+    #ped_y_graph는 ped_x_graph와 대칭형태일 것이므로 생략
+    if histogram:
+        car_z_graph=plt.subplot(2,2,1)
+        ped_z_graph=plt.subplot(2,2,2)
+        ped_x_graph=plt.subplot(2,2,3)
+        ped_xy_graph=plt.subplot(2,2,4)
+
+        car_z_graph.hist(car_z_change, bins=10)
+        ped_z_graph.hist(ped_z_change, bins=10)
+        ped_x_graph.hist(ped_x_change, bins=10)
+        ped_xy_graph.hist(ped_xy_change, bins=10)
+
+        car_z_graph.set_title('Car_z')
+        ped_z_graph.set_title('Ped_z')
+        ped_x_graph.set_title('Ped_x')
+        ped_xy_graph.set_title('Ped_xy_distance')
+
+        plt.subplots_adjust(hspace=0.5, wspace=0.3) 
+        plt.savefig(f'{pkl_path}_relabeling.png',dpi=200)
 
 def indoor_eval(gt_annos,
                 dt_annos,
@@ -233,7 +394,10 @@ def indoor_eval(gt_annos,
                 logger=None,
                 box_type_3d=None,
                 box_mode_3d=None,
-                classes=None):
+                classes=None,
+                pkl_path=None,
+                relabeling=False,
+                load_interval=1):
     """Indoor Evaluation.
 
     Evaluate the result of the detection.
@@ -308,12 +472,27 @@ def indoor_eval(gt_annos,
     eval_aos = True
     ioumodes = ['3d', '2d', 'dis']
     ret_dict_ioumodes = dict()
+
+    if relabeling:
+        print()
+        print("==============RELABELING==============")
+        ret_dict = dict()
+        gts_image_num = {}
+        gts_image_idx = {}
+        gts_image_box = {}
+        gts_image_num['2d'], gts_image_idx['2d'], gts_image_box['2d'] = \
+                    eval_map_recall_relabeling(pred, gt, ovthresh=(0.15,), ioumode='2d', eval_aos=False)
+        print(pkl_path)
+        pickle_change(pkl_path, load_interval, gts_image_num, gts_image_idx, gts_image_box, mode='pred')
+        return ret_dict_ioumodes
+
     for ioumode in ioumodes:
         cur_metric=metric
         if ioumode =='dis':
             cur_metric = (0.5,)
 
         rec, prec, ap, prec_num, aos = eval_map_recall(pred, gt, cur_metric, ioumode, eval_aos)
+        
         ret_dict = dict()
         header = ['classes /'+ioumode]
         table_columns = [[class_names[0] if label == 0 else class_names[1] if label == 1 else class_names[2]
@@ -369,8 +548,6 @@ def indoor_eval(gt_annos,
                 table_columns.append(list(map(float, aos_list)))
                 table_columns[-1] += [ret_dict[f'mAOS_{iou_thresh:.2f}']]
                 table_columns[-1] = [f'{x:.4f}' for x in table_columns[-1]]
-
-
         table_data = [header]
         table_rows = list(zip(*table_columns))
         table_data += table_rows
@@ -379,4 +556,6 @@ def indoor_eval(gt_annos,
         print_log('\n' + table.table, logger=logger)
         ret_dict_ioumodes[ioumode]=ret_dict
 
+    # 개념적으로는 이게 맞는데 이걸 리턴하면 학습에 문제가 생김.
+    # return ret_dict_ioumodes
     return ret_dict

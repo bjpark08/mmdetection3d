@@ -119,7 +119,7 @@ def show_det_data(input, out_dir, show=False):
     cnt=0
     for i in range(len(cur_gt_bboxes)):
         gt_bbox=cur_gt_bboxes[i]
-        if input['gt_labels_3d']._data[i].item()==1:
+        if input['gt_labels_3d']._data[i].item()==1 and gt_bbox[5]>=1:
             gt_bbox[3]=0
             gt_bbox[4]=0
             gt_bbox[5]=0

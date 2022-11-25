@@ -98,6 +98,12 @@ def parse_args():
         '--autoscale-lr',
         action='store_true',
         help='automatically scale lr with the number of gpus')
+    parser.add_argument(
+        '--training-pkl',
+        type=str,
+        default=None,
+        help='used in relabeling. filename of pkl file to train.'
+    )
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -117,6 +123,9 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
+    if args.training_pkl is not None:
+        cfg.data.train['dataset']['ann_file'] = cfg.data.train['dataset']['data_root'] + args.training_pkl
+
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 

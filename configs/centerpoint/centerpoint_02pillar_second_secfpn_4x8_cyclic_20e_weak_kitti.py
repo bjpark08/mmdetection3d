@@ -1,18 +1,18 @@
 _base_ = [
-    '../_base_/models/centerpoint_02pillar_second_secfpn_rf_2021.py',
-    '../_base_/datasets/rf2021-3d-2class.py',
+    '../_base_/models/centerpoint_02pillar_second_secfpn_weak_kitti.py',
+    '../_base_/datasets/weak_kitti-2class.py',
     '../_base_/schedules/cyclic_20e.py',
     '../_base_/default_runtime.py',
 ]
 
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
-point_cloud_range=[-60, -100.0, -3, 60.0, 60, 1]
+point_cloud_range=[0, -40, -3, 70.4, 40, 1]
 # For nuScenes we usually do 10-class detection
 class_names = ['Car', 'Pedestrian']
 
 dataset_type = 'Custom3DDataset'
-data_root = 'data/rf2021/'
+data_root = 'data/kitti_relabeling/'
 file_client_args = dict(backend='disk')
 
 model = dict(
@@ -25,11 +25,10 @@ model = dict(
 
 db_sampler = dict(
     data_root=data_root,
-    info_path=data_root + 'rf2021_final_dbinfos_train.pkl',
+    info_path=data_root + 'weak_kitti_20_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
-        filter_by_min_points=dict(Car=20, Pedestrian=15)),
-    ),
+        filter_by_min_points=dict(Car=15, Pedestrian=10)),
     classes=class_names,
     sample_groups=dict(Car=10, Pedestrian=10))
 

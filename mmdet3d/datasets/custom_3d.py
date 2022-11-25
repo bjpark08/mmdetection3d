@@ -83,7 +83,7 @@ class Custom3DDataset(Dataset):
         self.CLASSES = self.get_classes(classes)
         self.file_client = mmcv.FileClient(**file_client_args)
         self.cat2id = {name: i for i, name in enumerate(self.CLASSES)}
-
+        self.load_interval = load_interval
         # load annotations
         if hasattr(self.file_client, 'get_local_path'):
             with self.file_client.get_local_path(self.ann_file) as local_path:
@@ -307,11 +307,12 @@ class Custom3DDataset(Dataset):
     def evaluate(self,
                  results,
                  metric=None,
-                 iou_thr=(0.15,0.7),
+                 iou_thr=(0.15,0.5,0.7),
                  logger=None,
                  show=False,
                  out_dir=None,
-                 pipeline=None):
+                 pipeline=None,
+                 relabeling=False):
         """Evaluate.
 
         Evaluation in indoor protocol.
@@ -352,7 +353,10 @@ class Custom3DDataset(Dataset):
             logger=logger,
             box_type_3d=self.box_type_3d,
             box_mode_3d=self.box_mode_3d,
-            classes=self.CLASSES)
+            classes=self.CLASSES,
+            pkl_path=self.ann_file,
+            relabeling=relabeling,
+            load_interval=self.load_interval)
         if show:
             self.show(results, out_dir, pipeline=pipeline)
 
