@@ -17,11 +17,11 @@ db_sampler = dict(
     info_path=data_root + 'rf2021_final_dbinfos_train.pkl',
     rate=1.0,
     prepare=dict(
-        filter_by_difficulty=[-1],
-        filter_by_min_points=dict(Car=10, Pedestrian=10)),
+        # filter_by_min_points=dict(Car=10, Pedestrian=10),
+        filter_by_min_points_and_range=dict(Car=[10], Pedestrian=[50, 100, 150])
+    ),
     classes=['Car', 'Pedestrian'],
     sample_groups=dict(Car=10, Pedestrian=15))
-
 
 train_pipeline = [
     dict(
