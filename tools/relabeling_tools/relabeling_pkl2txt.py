@@ -6,31 +6,26 @@ import os
 from os import path as osp
 from tqdm import tqdm
 
-#사용한 pkl 파일을 다시 txt로 바꿔주는 코드
-#원래 NIA_2021_label과 다른 점은 아래와 같다.
-#ped의 경우 원래는 ped가 없으면 txt 파일이 아예 만들어지지 않았다. 여기서는 하나하나 다 만듬
-#실수형 자료(class를 제외한 전부)가 원래는 1.50처럼 유효숫자가 무조건 세 개였는데 지금은 1.5가 되는 등 0이 될 때 자릿수가 줄어든 경우가 있음
-
-filename_train='data/rf2021/rf2021_relabeled_infos_train.pkl'
-#filename_val='data/rf2021/datasets/rf2021/rf2021_infos_val_full.pkl'
-#filename_test='data/rf2021/datasets/rf2021/rf2021_infos_test_full.pkl'
-
 root_path = 'data/rf2021/'
-NIA_path = root_path + 'NIA_2021_label_relabeled/'
+# Relabeling 과정에서는 Cyclist를 Car에 포함시켜서 label을 Car로 통일시키지만
+# 다시 원래대로 돌릴 때에는 원래대로 Cyclist로 돌려놔야하므로 원본 label 쪽에서 Cyclist의 정보를 얻어와야함.
+NIA_original_label_path = root_path + 'NIA_2021_label/' + 'label/'
+
+# single set 사용
+filename_train='data/rf2021/relabeling_single_set/rf2021_final_infos_merged.pkl'
+NIA_path = root_path + 'NIA_2021_label_relabeled_single_set/'
 label_dir = NIA_path + 'label/'
 
+# double set 사용
+# filename_train='data/rf2021/relabeling_double_set/rf2021_final_infos_train_merged.pkl'
+# NIA_path = root_path + 'NIA_2021_label_relabeled_double_set/'
+# label_dir = NIA_path + 'label/'
+
 with open(filename_train,'rb') as f1:
-    data_train=pickle.load(f1)
+    data_full=pickle.load(f1)
 
-#with open(filename_val,'rb') as f2:
-#    data_val=pickle.load(f2)
 
-#with open(filename_test,'rb') as f3:
-#    data_test=pickle.load(f3)
-
-data_full = data_train #+ data_val + data_test
-
-######## 다른 파일로 돌릴 시 위의 부분들을 고쳐줄 것. 경우에 따라 val과 test가 없으므로 해당 부분을 지우고 돌릴 것
+######## 다른 파일로 돌릴 시 위의 부분들을 고쳐줄 것.
 
 for data in tqdm(data_full):
     seq_num=data['lidar_points']['lidar_path'][-13:-8]
@@ -40,9 +35,10 @@ for data in tqdm(data_full):
     ped_path = label_dir + seq_num + "/ped_label/"
     ped_cv_path = label_dir + seq_num + "/ped_cv_point/"
 
+    #veh, ped 관계없이 class,cx,cy,cz,l,w,h,theta로 통일
     annot = np.hstack((data['annos']['gt_names'].reshape(-1,1),data['annos']['gt_bboxes_3d']))
     veh_annot = annot[annot[:, 0] != 'Pedestrian',:]
-    ped_annot = annot[annot[:, 0] == 'Pedestrian',1:7]
+    ped_annot = annot[annot[:, 0] == 'Pedestrian',:]
     ped_cv_annot = annot[annot[:, 0] == 'Pedestrian',1:3]
 
     if not osp.exists(veh_path):
@@ -52,18 +48,33 @@ for data in tqdm(data_full):
     if not osp.exists(ped_cv_path):
         os.makedirs(ped_cv_path)
 
-    veh_annot[veh_annot[:,0] != 'Car',0] = 'Cyclist'
-    veh_annot[:,[1,2,3,4,5,6]]=veh_annot[:,[5,4,6,1,2,3]]
-    veh_annot[:,7]=np.around(math.pi/2 - veh_annot[:,7].astype(np.float32),2)
+    original_veh_path = NIA_original_label_path + seq_num + "/car_label/" + f"{seq_num}_{frame_num}.txt"
+    if osp.exists(original_veh_path):
+        if os.path.getsize(original_veh_path):
+            veh_original_annot = np.loadtxt(original_veh_path, dtype=np.object_).reshape(-1, 8)
+            # relabeling이 Cyclist를 Car에 포함해서 했으면 class 명만 옮긴다
+            # relabeling이 Cyclist를 Ped에 포함해서 했으면 Ped쪽 Cyclist를 Car쪽으로 옮긴다
+            if len(veh_annot[:,0])==len(veh_original_annot):
+                veh_annot[:,0] = veh_original_annot[:,0]
+            else:
+                noncar_cnt = sum(veh_original_annot[:, 0] != 'Car')
+                noncar_annot = ped_annot[0:noncar_cnt,:]
+                noncar_annot[:,0] = 'Cyclist'
+                veh_annot = np.vstack((veh_annot, noncar_annot))
+                ped_annot = ped_annot[noncar_cnt:,:]
+                
+            
+
+    #txt 형식 변경으로 제거
+    #veh_annot[:,[1,2,3,4,5,6]]=veh_annot[:,[5,4,6,1,2,3]]
+    #veh_annot[:,7]=np.around(math.pi/2 - veh_annot[:,7].astype(np.float32),2)
     
     np.savetxt(veh_path+f"{seq_num}_{frame_num}.txt", veh_annot, fmt='%s', delimiter=' ')
     np.savetxt(ped_path+f"{seq_num}_{frame_num}.txt", ped_annot, fmt='%s', delimiter=' ')
     np.savetxt(ped_cv_path+f"{seq_num}_{frame_num}.txt", ped_cv_annot, fmt='%s', delimiter=' ')
 
-
 #만든 label 폴더들마다 Scene의 Property들을 넣는다.
 sequence_max = 3000
-#min_ped = 0 (조건 삭제, 원래는 해당 seq의 평균 ped의 최소값. 예를 들어 min_ped가 1이면 ped갯수의 평균이 1미만인 seq는 학습 및 평가 데이터셋에서 제외됨.)
 
 # [seq번호, seq의 scene 갯수, seq의 전체 veh 수, seq의 전체 ped 수, seq의 전체 큰 차 수]  
 object_cnt=[[0,0,0,0,0] for i in range(sequence_max)]
@@ -99,7 +110,7 @@ for fol in tqdm(folder_list):
             ped_label_file_path = osp.join(ped_label_dir, ped_file)
             if osp.exists(ped_label_file_path):
                 if os.path.getsize(ped_label_file_path):
-                    annot_ped = np.loadtxt(ped_label_file_path, dtype=np.object_).reshape(-1, 6)
+                    annot_ped = np.loadtxt(ped_label_file_path, dtype=np.object_).reshape(-1, 8)
                     object_cnt[fol][3] += len(annot_ped)
                     ped_all+=len(annot_ped)
 
@@ -112,9 +123,6 @@ for fol in tqdm(folder_list):
 object_cnt = np.array(object_cnt).astype(np.float32)
 object_cnt = object_cnt[object_cnt[:,1]>0, :]
 object_cnt[:,2:5]=np.true_divide(object_cnt[:,2:5],object_cnt[:,1].reshape(-1,1))
-
-#for seq_data in object_cnt:
-#    print(str(seq_data[0]])+"\t"+str(object_cnt[i][1])+"\t"+str(round(object_cnt[i][2],2))+"\t"+str(round(object_cnt[i][3],2))"\t"+str(round(object_cnt[i][4],2)))
 
 object_cnt = list(object_cnt)
 
